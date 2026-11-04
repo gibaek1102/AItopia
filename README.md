@@ -1,15 +1,17 @@
-# AItopia (연구 소개 페이지)
+# AItopia (static site)
 
-Polytopia 대상 비공식 연구 프로젝트이며 Midjiwan과 무관합니다.
+- `index.html` — English version (for the Midjiwan pre-release). `index_ko.html` — Korean version.
+- Each file is the whole game (no server). The Solaris weights are embedded in the page.
+- Deploy: put this folder on GitHub Pages / Cloudflare Pages / Vercel. `CNAME` already says aitopia.ericlee.dev; the domain admin adds a CNAME for `aitopia` in the DNS of ericlee.dev.
 
-- `index.html` 한 파일이 페이지 전체입니다(서버 불필요).
-- 이 저장소에는 게임 아트·게임 데이터·규칙 엔진·가중치·실행 가능한 데모를 넣지 않습니다.
+## Rebuild from a new Terranion/Jupiter HTML
+    python3 tools/build.py new_build.html out_dir
+It removes the fan/marble tribes, adds Pass & Play, the "not official" notice, the AItopia name and the embedded Solaris, then writes `out_dir/index.html` (EN) and `out_dir/index_ko.html` (KO).
+Strings that are new in the source need an entry in `tools/tr_dict.json` (the build stops and lists them).
+New Solaris weights: replace `tools/solaris_net.json` and rebuild.
 
-## 배포 (GitHub Pages)
-1. GitHub에서 새 저장소 생성 (예: `aitopia-research`)
-2. 이 폴더의 파일을 저장소 루트에 올리기
-3. Settings → Pages → Source: `main` / `(root)` → Save
-4. 주소: `https://<사용자명>.github.io/aitopia-research/`
-
-## 수정
-소스는 `AItopia.tsx`(별도 보관). 섹션은 `CONFIG.showCode` / `CONFIG.showVideo`로 켜고 끕니다.
+## Checks (need playwright)
+    node tools/replay_cmp.js $(pwd)/index.html 11 18 crazy   # same seed, all 16 tribes: compare the digest with the original build
+    UI=en node tools/test_pp.js $(pwd)/index.html             # Pass & Play, 3 humans + 1 bot
+    UI=en node tools/test2.js   $(pwd)/index.html             # single-player regression, reload, win/loss rules
+    UI=en node tools/test_sol2.js $(pwd)/index.html 6 crazy   # Solaris plays real games
