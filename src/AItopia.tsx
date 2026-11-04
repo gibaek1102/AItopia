@@ -38,10 +38,18 @@ const RESULTS = {
     points: undefined as { x: number; y: number }[] | undefined,
     gates: [18, 40, 63, 84] as number[], // 평가 하니스 통과(승격) 시점(예시)
   },
-  // 승률: 초기 소표본 실측 (6판, 25턴 점수 판정)
-  winRate: [
-    { label: "vs 엔진 내장 Crazy 봇", win: 1, loss: 5, note: "25턴 점수 판정 · n=6 · 소표본" },
-    { label: "vs 규칙 기반 계열 (기준선)", win: 0, loss: 0, note: "측정 예정" },
+  // 실험 결과: vs hard 봇(내장 난이도), greedy 평가, 점수 비율(%). 모두 "옛 스택"(속도 개선 전)에서 측정.
+  // lo=hi 이면 단일 값. 새 스택 숫자는 같은 표에 섞지 않는다.
+  experiments: [
+    { label: "기준선", sub: "작은 네트 · 40턴 · 시드 2000 · 30쌍 (±7.6)", lo: 59.2, hi: 59.2, base: true },
+    { label: "기준선", sub: "큰 네트 · 40턴 · 시드 3000", lo: 65.8, hi: 65.8, base: true },
+    { label: "기준선", sub: "큰 네트 · 80턴 · 시드 4000~4059 · 60쌍", lo: 58.8, hi: 58.8, base: true },
+    { label: "작은 네트 lr 1e-4", sub: "125~500회차", lo: 57.5, hi: 61.7 },
+    { label: "작은 네트 lr 1e-4", sub: "600회차", lo: 50.0, hi: 50.0 },
+    { label: "큰 네트 lr 2e-4", sub: "25~125회차", lo: 59.2, hi: 62.5 },
+    { label: "큰 네트 lr 2e-4", sub: "150~500회차 (하락)", lo: 45.0, hi: 49.2 },
+    { label: "80턴 학습", sub: "100회차 / 175회차", lo: 32.5, hi: 53.3 },
+    { label: "8×8 학습 → 12×12", sub: "시드 4000 · 60쌍 (기준선 58.8)", lo: 58.3, hi: 58.3 },
   ],
   // 레이팅: 게임 내 표시값 기준 "추정" (봇 간 대전 원값 − 900). 공식 레이팅 아님.
   // Solaris는 측정 전.
@@ -319,31 +327,36 @@ function LearningCurve() {
   );
 }
 
-function WinRateChart() {
-  const rows = RESULTS.winRate;
-  const W = 720, rowH = 74, H = rows.length * rowH + 20, L = 24, bw = W - L * 2;
+function ScoreChart() {
+  const rows = RESULTS.experiments;
+  const W = 720, rowH = 46, H = rows.length * rowH + 44, L = 270, R = 30;
+  const xs = (v: number) => L + (v / 100) * (W - L - R);
   return (
     <figure>
-      <p className="chart-title">승률</p>
-      <p className="chart-sub">초기 소표본 결과입니다. 실력 주장이 아니라 측정 파이프라인 점검용 기록입니다.</p>
-      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="승률 차트">
+      <p className="chart-title">실험 결과 · vs hard 봇 (greedy)</p>
+      <p className="chart-sub">점수 비율(%). 점선은 50%. 모두 속도 개선 전(옛 스택)에서 잰 값이며, 막대는 회차에 따른 최소~최대입니다.</p>
+      <svg viewBox={`0 0 ${W} ${H}`} role="img" aria-label="실험별 점수 비율 차트">
+        {[0, 25, 50, 75, 100].map((t) => (
+          <g key={t}>
+            <line x1={xs(t)} x2={xs(t)} y1={4} y2={H - 28} stroke={t === 50 ? "var(--mute)" : "var(--line)"} strokeDasharray={t === 50 ? "5 4" : "3 5"} />
+            <text x={xs(t)} y={H - 10} fontSize={11} fill="var(--mute)" textAnchor="middle" fontFamily={FONT}>{t}%</text>
+          </g>
+        ))}
         {rows.map((r, i) => {
-          const y = 10 + i * rowH, tot = r.win + r.loss;
-          const ww = tot ? (r.win / tot) * bw : 0;
+          const y = 8 + i * rowH;
+          const x1 = xs(r.lo), x2 = xs(r.hi);
+          const range = r.hi > r.lo;
+          const col = r.base ? "var(--a1)" : r.hi < 50 ? "var(--warn)" : "var(--a2)";
           return (
-            <g key={r.label}>
-              <text x={L} y={y + 14} fontSize={13.5} fontWeight={700} fill="var(--text)" fontFamily={FONT}>{r.label}</text>
-              <text x={W - L} y={y + 14} fontSize={12} fill="var(--mute)" textAnchor="end" fontFamily={FONT}>{r.note}</text>
-              {tot ? (
-                <>
-                  <rect x={L} y={y + 26} width={bw} height={26} rx={7} fill="var(--warn)" opacity={0.28} />
-                  <rect x={L} y={y + 26} width={Math.max(ww, 0)} height={26} rx={7} fill="var(--ok)" />
-                  <text x={L + 10} y={y + 44} fontSize={12.5} fontWeight={700} fill="#0b0d20" fontFamily={FONT}>{r.win}승</text>
-                  <text x={W - L - 10} y={y + 44} fontSize={12.5} fontWeight={700} fill="var(--text)" textAnchor="end" fontFamily={FONT}>{r.loss}패</text>
-                </>
+            <g key={r.label + r.sub}>
+              <text x={L - 12} y={y + 16} fontSize={13} fontWeight={700} textAnchor="end" fill="var(--text)" fontFamily={FONT}>{r.label}</text>
+              <text x={L - 12} y={y + 32} fontSize={11} textAnchor="end" fill="var(--mute)" fontFamily={FONT}>{r.sub}</text>
+              {range ? (
+                <rect x={x1} y={y + 8} width={Math.max(x2 - x1, 6)} height={18} rx={9} fill={col} opacity={0.9} />
               ) : (
-                <rect x={L} y={y + 26} width={bw} height={26} rx={7} fill="none" stroke="var(--line)" strokeDasharray="6 5" />
+                <circle cx={x1} cy={y + 17} r={8} fill={col} stroke="var(--bg)" strokeWidth={2} />
               )}
+              <text x={x2 + 14} y={y + 21} fontSize={12} fill="var(--mute)" fontFamily={FONT}>{range ? `${r.lo}~${r.hi}` : r.lo}%</text>
             </g>
           );
         })}
@@ -456,7 +469,7 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
             <div className="card">
               <span className="tag b">원칙</span>
               <h3>규칙은 줄이고 학습은 늘리기</h3>
-              <p>합법 행동 마스크 같은 최소한의 틀만 두고, 판단은 정책·가치 망과 탐색이 맡도록 설계.</p>
+              <p>합법 행동 마스크 같은 최소한의 틀만 두고, 판단은 정책·가치 망과 탐색이 맡도록 설계. 손으로 정한 요소는 학습 전용 보조 5개 이내이며, 플레이 시에는 쓰지 않습니다.</p>
             </div>
             <div className="card">
               <span className="tag">성격</span>
@@ -521,9 +534,28 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
           <h2>결과</h2>
           <p className="lead">진행 중인 연구라서 수치는 잠정값입니다. 실측이 없는 항목은 비워 두거나 ‘예시’로 표시했습니다.</p>
           <div className="card" style={{ marginBottom: 14 }}><LearningCurve /></div>
+          <div className="card" style={{ marginBottom: 14 }}><ScoreChart /></div>
           <div className="grid g2">
-            <div className="card"><WinRateChart /></div>
+            <div className="card">
+              <span className="tag a">한계 · 진행 중</span>
+              <h3>아직 앞서지 못했습니다</h3>
+              <ul className="plain">
+                <li>terranion@10 상대(20쌍·40턴): 유효 greedy 점수 <b style={{ color: "var(--text)" }}>27.5~35.0%</b>, 승 0~1.</li>
+                <li>샘플링 평가(20.0%)와 절차가 어긋나 무효 처리한 실행은 제외했습니다.</li>
+                <li>terranion@10 상대 기준선(32.5%)을 넘은 변형은 없었습니다. vs hard에서는 80턴 학습이 175회차에 32.5%까지 떨어졌습니다.</li>
+                <li>승리 시간을 반영한 보상(win-time) 학습은 <b style={{ color: "var(--text)" }}>진행 중</b>입니다. 합격 기준은 학습 전에 먼저 적어 둡니다.</li>
+              </ul>
+            </div>
             <div className="card"><RatingChart /></div>
+          </div>
+          <div className="card" style={{ marginTop: 14 }}>
+            <span className="tag b">발견 1 · 속도</span>
+            <h3>병목을 두 번 옮겨 가며 줄였습니다</h3>
+            <ul className="plain">
+              <li>1차 병목은 합성곱이었습니다. 순전파가 94%, 그중 합성곱이 81%였고, 희소 scatter 합성곱으로 순전파 약 7배, 역전파 약 5.5~6배를 얻었습니다.</li>
+              <li>2차 병목은 엔진의 부가 계산(UI 평점용 시뮬레이션)이었습니다. 이를 끄면 봇 턴이 약 8배 빨라지고, 이후에는 신경망 계산이 약 88%를 차지합니다. <span className="tag" style={{ margin: 0 }}>잠정 · 근거 정리 중</span></li>
+              <li>위 실험은 모두 속도 개선 전(옛 스택)에서 잰 값입니다. 같은 시드라도 새 스택에서는 게임이 달라지므로 두 스택의 숫자는 한 표에 섞지 않고 기준선도 새로 잽니다.</li>
+            </ul>
           </div>
         </section>
 
