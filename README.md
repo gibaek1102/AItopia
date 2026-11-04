@@ -1,17 +1,26 @@
-# AItopia (static site)
+# AItopia — 연구 소개 페이지
 
-- `index.html` — English version (for the Midjiwan pre-release). `index_ko.html` — Korean version.
-- Each file is the whole game (no server). The Solaris weights are embedded in the page.
-- Deploy: put this folder on GitHub Pages / Cloudflare Pages / Vercel. `CNAME` already says aitopia.ericlee.dev; the domain admin adds a CNAME for `aitopia` in the DNS of ericlee.dev.
+> Polytopia 대상 비공식 연구 프로젝트이며 Midjiwan과 무관합니다.
 
-## Rebuild from a new Terranion/Jupiter HTML
-    python3 tools/build.py new_build.html out_dir
-It removes the fan/marble tribes, adds Pass & Play, the "not official" notice, the AItopia name and the embedded Solaris, then writes `out_dir/index.html` (EN) and `out_dir/index_ko.html` (KO).
-Strings that are new in the source need an entry in `tools/tr_dict.json` (the build stops and lists them).
-New Solaris weights: replace `tools/solaris_net.json` and rebuild.
+자기 대국 강화학습 연구의 개요·구조 도식·결과 차트를 소개하는 정적 페이지입니다.
+게임 아트, 게임 데이터, 규칙 엔진, 가중치, 실행 가능한 데모는 이 저장소에 포함하지 않습니다.
 
-## Checks (need playwright)
-    node tools/replay_cmp.js $(pwd)/index.html 11 18 crazy   # same seed, all 16 tribes: compare the digest with the original build
-    UI=en node tools/test_pp.js $(pwd)/index.html             # Pass & Play, 3 humans + 1 bot
-    UI=en node tools/test2.js   $(pwd)/index.html             # single-player regression, reload, win/loss rules
-    UI=en node tools/test_sol2.js $(pwd)/index.html 6 crazy   # Solaris plays real games
+## 구조
+```
+index.html            ← 배포되는 결과물 (빌드로 생성, 직접 수정 금지)
+src/AItopia.tsx       ← 페이지 본체 (설정 플래그·결과 데이터·도식·차트)
+src/main.tsx          ← 진입점
+scripts/build.mjs     ← 번들 → index.html 생성
+scripts/template.html ← HTML 틀 (제목·설명·아이콘)
+```
+
+## 수정 방법
+1. `src/AItopia.tsx` 맨 위에서 수정
+   - `CONFIG.showCode` / `CONFIG.showVideo`: 코드·영상 섹션 켜기/끄기
+   - `PLANNED_RELEASES`: 코드 섹션의 공개 예정 항목
+   - `RESULTS`: 학습 곡선(`isDemo`), 승률, 추정 레이팅 값
+2. `npm install` (최초 1회) → `npm run build`
+3. `index.html` 커밋·푸시
+
+## 배포
+GitHub Pages: Settings → Pages → Branch `main` / `(root)`
