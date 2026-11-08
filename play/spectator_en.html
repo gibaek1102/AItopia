@@ -6010,7 +6010,7 @@ function hud(){
   const p=g.players[V()];
   $('hDot').style.background=TRIBES[p.tribe].col;
   $('hStars').textContent=p.stars; { const sp=spOf(g,V()); $('hInc').textContent=`(+${income(g,V())})`; }
-  $('hTurn').textContent=(innerWidth<=480?`T${g.turn}`:`Turn ${g.turn}`);
+  $('hTurn').textContent=(innerWidth<=480?`T${g.turn-1}`:`Turn ${g.turn-1}`);
   const st=standings(g), rk=st.findIndex(q=>q.pid===V())+1;
   $('hRank').textContent = g.spectate ? `Spectating · ${st.filter(q=>q.alive).length}tribes` : g.players[V()].alive ? `#${rk}/${st.filter(q=>q.alive).length}` : 'Eliminated';
   if(g.spectate){ const c=g.players[g.cur]; $('hDot').style.background=TRIBES[c.tribe].col; $('hStars').textContent=c.stars; $('hInc').textContent=`(+${income(g,g.cur)}) ${TRIBES[c.tribe].n}`; }
@@ -6019,7 +6019,7 @@ function hud(){
 function specPanel(){
   const info=$('info'), acts=$('acts'); acts.innerHTML='';
   const st=standings(g);
-  info.innerHTML=`<h3>Spectating <span class="tag">Turn ${g.turn}</span><span class="tag">${tribeName(g.cur)} to play</span>${g.specT?`<span class="tag">${g.specT}turns left</span>`:''}</h3>
+  info.innerHTML=`<h3>Spectating <span class="tag">Turn ${g.turn-1}</span><span class="tag">${tribeName(g.cur)} to play</span>${g.specT?`<span class="tag">${g.specT}turns left</span>`:''}</h3>
     <div class="loglist" style="margin-top:6px">${st.map((s,k)=>{ const p=g.players[s.pid]; return `<div style="${p.alive?'':'opacity:.45'}${s.pid===g.cur?';font-weight:700':''}"><span class="t">${k+1}</span><span class="dot" style="display:inline-block;vertical-align:-1px;background:${TRIBES[p.tribe].col}"></span> ${TRIBES[p.tribe].n} · ${diffOf(g,s.pid).n} · ${p.alive?`${s.score}pts · cities ${numCities(g,s.pid)} · units ${g.units.filter(u=>u.owner===s.pid).length} · ★${p.stars} (+${income(g,s.pid)})`:'Destroyed'}</div>`; }).join('')}</div>
     <div class="sub" style="margin-top:4px">Tap a unit or city to see its info.</div>`;
   layoutZoom();
@@ -6217,9 +6217,9 @@ function aiLoop(done){
   const step=()=>{
     if(myId!==GAMEID||g!==gRef){ busy=false; return; }
     if(g.spectate && !g.over && g.specT && g.turn>g.specT){ g.over='end'; }
-    if(g.spectate && SPEC.paused && !g.over){ busy=false; $('endBtn').disabled=true; $('endBtn').textContent=`Spectating · Turn ${g.turn} · Paused`; specBtn(); save(); refresh(); return; }
+    if(g.spectate && SPEC.paused && !g.over){ busy=false; $('endBtn').disabled=true; $('endBtn').textContent=`Spectating · Turn ${g.turn-1} · Paused`; specBtn(); save(); refresh(); return; }
     if(!g.over && g.players[g.cur].ai){
-      k++; $('endBtn').textContent=g.spectate?`Spectating · Turn ${g.turn} · ${tribeName(g.cur)}`:`AI ${k}/${bots}`;
+      k++; $('endBtn').textContent=g.spectate?`Spectating · Turn ${g.turn-1} · ${tribeName(g.cur)}`:`AI ${k}/${bots}`;
       const watch = replayMode()!=='off' && !replaySkip && (g.spectate || g.players[V()].alive);
       let start=null; if(watch){ updateVision(g); g._recVis=g.spectate?specAll(g.N):g.vis; g._rec=[]; start={units:g.units.map(u=>Object.assign({},u)),cities:g.cities.map(c=>c.owner)}; }
       const who=g.cur;
@@ -6301,7 +6301,7 @@ function specBtn(){ let b=document.getElementById('specBtn');
 function specOver(){
   specBtn(); save();
   const st=standings(g);
-  openModal(`<h2>Spectating ended</h2><p class="lead">${g.turn}turns · ${g.players.filter(p=>p.alive).length===1?`${tribeName(st[0].pid)} is the last tribe standing`:'Turn limit reached — ranked by score'}</p>
+  openModal(`<h2>Spectating ended</h2><p class="lead">${g.turn-1}turns · ${g.players.filter(p=>p.alive).length===1?`${tribeName(st[0].pid)} is the last tribe standing`:'Turn limit reached — ranked by score'}</p>
     <div class="loglist">${st.map((s,k)=>`<div><span class="t">${k+1}</span><span class="dot" style="display:inline-block;background:${TRIBES[g.players[s.pid].tribe].col}"></span> ${TRIBES[g.players[s.pid].tribe].n} · ${diffOf(g,s.pid).n} · ${s.alive?s.score+'pts':'Destroyed'}</div>`).join('')}</div>
     <div class="row"><button class="pri" id="mNew">New game</button><button id="mView">View map</button><button id="mExp">Save record</button></div>`);
   $('mExp').onclick=exportGame; $('mNew').onclick=()=>{ try{localStorage.removeItem(SAVE);}catch(e){} setup(); }; $('mView').onclick=closeModal;
@@ -6314,7 +6314,7 @@ function checkOver(){
   if(OVER_SHOWN===g) return; // the result sheet is shown once; later moves on the finished game do not reopen it
   OVER_SHOWN=g;
   const sm=summary(g)[0], d=g.eloDone.to-g.eloDone.from;
-  openModal(`<h2>${g.over==='win'?'Victory!':'Defeat'}</h2><p class="lead">${g.turn}turns · ${g.over==='win'?'You conquered every tribe.':'You lost every city.'}</p>
+  openModal(`<h2>${g.over==='win'?'Victory!':'Defeat'}</h2><p class="lead">${g.turn-1}turns · ${g.over==='win'?'You conquered every tribe.':'You lost every city.'}</p>
     <div class="row" style="gap:18px;align-items:baseline"><div><div class="lbl">Accuracy</div><b style="font-size:24px">${sm.acc==null?'–':sm.acc.toFixed(1)}</b></div><div><div class="lbl">Game Elo rating</div><b style="font-size:24px">${gameRating(g,V())??'–'}</b></div><div><div class="lbl">My Elo rating</div><b style="font-size:24px">${g.eloDone.to}</b> <span style="color:${d>=0?'var(--good)':'var(--bad)'}">${d>=0?'+':''}${d}</span></div></div>
     <div class="row"><button class="pri" id="mRv">Game review</button><button id="mNew">New game</button><button id="mView">View map</button><button id="mExp">Save record</button>${g.over==='win'?'<button id="mCont">Keep playing to the end</button>':''}</div>`);
   if($('mCont')) $('mCont').onclick=()=>{ g.cont=1; g.won=g.turn; g.over=null; closeModal(); save(); refresh(); };
@@ -6376,7 +6376,7 @@ function techModal(){
 }
 $('bTech').onclick=()=>{ if(g) techModal(); };
 $('bLog').onclick=()=>{ if(!g) return;
-  const rows=g.log.slice(-80).reverse().map(l=>`<div><span class="t">T${l.t}</span><span style="color:${TRIBES[g.players[l.p]?.tribe??0].col}">${tribeName(l.p)}</span><span>${l.m}</span></div>`).join('');
+  const rows=g.log.slice(-80).reverse().map(l=>`<div><span class="t">T${l.t-1}</span><span style="color:${TRIBES[g.players[l.p]?.tribe??0].col}">${tribeName(l.p)}</span><span>${l.m}</span></div>`).join('');
   const stn=standings(g), sm=summary(g);
   const sc=stn.map((q,k)=>{ const p=g.players[q.pid]; const a=sm[q.pid].acc;
     return `<div class="rk ${q.pid===V()?'me':''}"><span class="rn">${p.alive?k+1:'–'}</span><span class="dot" style="background:${TRIBES[p.tribe].col}"></span><span class="rnm">${tribeName(p.id)}${p.ai?` <small>${diffOf(g,p.id).n}</small>`:' <small>me</small>'}</span><span class="rs">${p.alive?q.score.toLocaleString():'Destroyed'}</span><span class="ra">${a==null?'':a.toFixed(1)+'%'}</span></div>
@@ -6599,7 +6599,7 @@ function saveText(str,name,full,fullName){ // phones inside the Claude app often
   o.querySelector('#svCopy').onclick=async()=>{ let ok=false; try{ await navigator.clipboard.writeText(ta.value); ok=true; }catch(e){} if(!ok){ ta.focus(); ta.select(); try{ ok=document.execCommand('copy'); }catch(e){} } toast(ok?'Copied — paste it into the chat':'Long-press the box, select all and copy',2600); };
 }
 async function exportGame(){
-  try{ const str=await encodeSave(g), t=TRIBES[g.players[V()].tribe].n.replace(/[^\w-]/g,''), name=`polytopia_${t||'save'}_${g.N}x${g.N}_T${g.turn}.txt`;
+  try{ const str=await encodeSave(g), t=TRIBES[g.players[V()].tribe].n.replace(/[^\w-]/g,''), name=`polytopia_${t||'save'}_${g.N}x${g.N}_T${g.turn-1}.txt`;
     let dl=null; try{ dl=window.claude&&claude.use?await claude.use('downloads'):null; }catch(e){}
     if(dl){ try{ await dl.save({filename:name,data:str}); return; }catch(e){ if(e&&(e.code==='declined'||e.code==='cancelled')) return; } }
     if(window.__dlOK===false){ saveText(await encodeSave(g,true),name.replace('.txt','_light.txt'),str,name); return; } // __dlOK was never set anywhere, so a normal browser always got the light save; only a page that knows downloads fail gets the copy dialog
@@ -6659,7 +6659,7 @@ async function slotDelete(k){
 function fmtDate(t){ const d=new Date(t); const p=n=>String(n).padStart(2,'0'); return `${d.getMonth()+1}/${d.getDate()} ${p(d.getHours())}:${p(d.getMinutes())}`; }
 function metaLine(m){ if(!m) return '<span style="color:var(--mute)">Empty</span>';
   const t=TRIBES[m.tribe]||TRIBES[0];
-  return `<span class="dot" style="background:${t.col}"></span> ${t.n} · ${m.N}×${m.N} ${(MAPS[m.map]||{n:''}).n} · bots ${m.bots} · turn ${m.turn}${m.over?` · ${m.over==='win'?'Won':'Defeat'}`:''}<br><span style="color:var(--mute)">${fmtDate(m.savedAt)}</span>`; }
+  return `<span class="dot" style="background:${t.col}"></span> ${t.n} · ${m.N}×${m.N} ${(MAPS[m.map]||{n:''}).n} · bots ${m.bots} · turn ${m.turn-1}${m.over?` · ${m.over==='win'?'Won':'Defeat'}`:''}<br><span style="color:var(--mute)">${fmtDate(m.savedAt)}</span>`; }
 let armedDel=0;
 async function saveModal(back){
   openModal(`<h2>Save / Load</h2><p class="lead">Loading…</p>`,true);
@@ -6711,7 +6711,7 @@ function setup(){
     const mb=Math.max(1,maxBots(st.size))+1;
     const d=DIFFS[st.diff];
     openModal(`<h2>AItopia</h2><p class="lead">Bot-vs-bot spectator</p>
-      <div class="row">${saved&&!saved.over&&saved.spectate?`<button class="pri" id="sCont">Continue · ${TRIBES[saved.players[0].tribe].n} · ${saved.N}×${saved.N} · turn ${saved.turn}</button>`:''}</div>
+      <div class="row">${saved&&!saved.over&&saved.spectate?`<button class="pri" id="sCont">Continue · ${TRIBES[saved.players[0].tribe].n} · ${saved.N}×${saved.N} · turn ${saved.turn-1}</button>`:''}</div>
             <div class="lbl">Difficulty <span style="text-transform:none;letter-spacing:0">(tap to apply to all bots)</span></div><div class="row">${opt('diff',Object.entries(DIFFS).filter(([k,v])=>!v.hide).map(([k,v])=>[k,v.n]))}</div>
       <p class="note" style="margin:-8px 0 14px">${d.n}: ${d.skill<1?`Blunder chance ${Math.round((1-d.skill)*55)}%`:'No blunders'} · bot AItopian rating ${BOT_ELO[st.diff]??'–'} estimate (Elo equivalent ${shownElo(st.diff)})</p>
       ${(st.diff==='terranion14'||(st.spec&&st.specDiff==='terranion14')||st.botList.slice(0,st.bots).some(b=>b.diff==='terranion14'))?`<div class="lbl">Terranion thinking time <span style="text-transform:none;letter-spacing:0">(per bot turn)</span></div><div class="row" style="align-items:center">${[[30,'30 s'],[60,'1 min'],[120,'2 min'],[300,'5 min'],[3600,'1 hour'],[18000,'5 hours'],[72000,'20 hours']].map(([v,l])=>`<button data-tms="${v}" class="${+st.tms===v?'on':''}">${l}</button>`).join('')}<label style="display:flex;gap:6px;align-items:center;font-size:13px">Custom <input id="sTms" type="number" min="1" max="72000" step="1" value="${+st.tms||120}" style="width:72px;font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px" aria-label="Terranion thinking time (seconds)"> s (1-72000)</label></div>`:''}
@@ -6977,7 +6977,7 @@ function advPlayersModal(){
   const addSel = g.players.length < 16 ? `<div class="row" style="align-items:center"><select id="pAddT" style="font:inherit;font-size:14px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:9px;padding:7px 8px">${TRIBES.map((q, k) => `<option value="${k}" ${used.has(k) ? 'disabled' : ''}>${q.n}</option>`).join('')}</select><button id="pAdd">＋ P${g.players.length} Add</button></div>` : '<p class="note">Up to 16 players.</p>';
   openModal(`<h2>Players</h2><p class="lead">Match my stars and techs to the real game. For opponents you only see the number of cities, not their stars or techs. For their score, enter the number from the game's scoreboard (leave blank if unknown, shown as ?). Add newly met opponents below.</p>${rows}
     <div class="lbl">Add an opponent</div>${addSel}
-    <div class="lbl">Turn</div><div class="row" style="align-items:center"><button id="pT-">−</button><b style="font-family:var(--display);font-size:18px">Turn ${g.turn}</b><button id="pT+">+</button></div>`);
+    <div class="lbl">Turn</div><div class="row" style="align-items:center"><button id="pT-">−</button><b style="font-family:var(--display);font-size:18px">Turn ${g.turn-1}</b><button id="pT+">+</button></div>`);
   const sh = $('sheet');
   sh.querySelectorAll('[data-st]').forEach(e => e.onchange = () => { g.players[+e.dataset.st].stars = Math.max(0, +e.value || 0); advChanged(); });
   sh.querySelectorAll('[data-tc]').forEach(b => b.onclick = () => advTechModal(+b.dataset.tc));
@@ -7362,7 +7362,7 @@ function advNextTurn(){
   try { endTurn(g); let k = 0; while (g.cur !== 0 && k++ < 20) endTurn(g); } catch (e) { console.error(e); }
   g.cur = 0; g.over = null; g.pending = []; g.offers = [];
   for (const u of g.units){ u.mv = u.at = u.done = 0; }
-  advVis(); advSave(); refresh(); toast(`Turn ${g.turn} — stars ${g.players[0].stars}. If this differs from the real stars, adjust it`, 2400);
+  advVis(); advSave(); refresh(); toast(`Turn ${g.turn-1} — stars ${g.players[0].stars}. If this differs from the real stars, adjust it`, 2400);
 }
 
 // ---------- panel ----------
@@ -7460,7 +7460,7 @@ function advPanel(){
   if (ADVS.owner >= g.players.length) ADVS.owner = 0; if (ADVS.gowner >= g.players.length) ADVS.gowner = g.players.length > 1 ? 1 : 0;
   const T = ADVS.tool;
   const hint = { sel: 'Tap units, cities and ghosts to edit or move them. Enter what the opponents moved here.', ter: 'Changes the terrain of the tapped tile.', res: 'Places a resource on the tapped tile.', imp: 'Builds a building or road on the tapped tile (inside city territory).', city: 'Tap an empty tile to create a city for that owner.', unit: 'Tap an empty tile to create a unit.', ghost: 'Tap the last place you saw it in the fog. The possible range widens each turn.', vil: 'Each tap cycles village → ruins → none.', fog: 'Toggles the tapped tile as fog (unknown tile).', erase: 'Erases in the order unit → ghost → building → resource → city.' }[T];
-  info.innerHTML = `<h3>Live-game analysis <span class="tag">Turn ${g.turn}</span>${ADVS.ghosts.length ? `<span class="tag">Ghosts ${ADVS.ghosts.length}</span>` : ''}</h3><div class="sub">${hint}</div>`;
+  info.innerHTML = `<h3>Live-game analysis <span class="tag">Turn ${g.turn-1}</span>${ADVS.ghosts.length ? `<span class="tag">Ghosts ${ADVS.ghosts.length}</span>` : ''}</h3><div class="sub">${hint}</div>`;
   acts.appendChild(chip('↩ Undo', false, advUndo));
   acts.appendChild(chip(advStoreOk ? '📋 Copy backup' : '⚠📋 Copy backup', false, advQuickCopy));
   for (const [k, l] of TOOLS) acts.appendChild(chip(l, T === k, () => { ADVS.tool = k; ADVS.moveFrom = null; refresh(); }));
