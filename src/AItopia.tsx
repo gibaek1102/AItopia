@@ -21,8 +21,8 @@ export const CONFIG = {
 
 /* 데모 파일은 레포의 play/ 폴더에 있습니다 */
 const DEMOS = [
-  { name: "봇 대 봇 관전", desc: "봇끼리 대국하는 모습을 지켜보는 관전 모드. 봇 수·부족·난이도·맵을 정할 수 있습니다.", ko: "play/spectator_ko.html", en: "play/spectator_en.html" },
-  { name: "실전 분석 (다음 수 계산기)", desc: "실제 대국의 판을 옮겨 넣으면 봇이 이번 턴의 최선의 수를 계산합니다.", ko: "play/analysis_ko.html", en: "play/analysis_en.html" },
+  { name: "봇 대 봇 관전", desc: "봇끼리 대국하는 모습을 지켜보는 관전 모드. 봇 수·부족·난이도·맵을 정할 수 있습니다.", href: "play/spectator.html" },
+  { name: "실전 분석 (다음 수 계산기)", desc: "실제 대국의 판을 옮겨 넣으면 봇이 이번 턴의 최선의 수를 계산합니다.", href: "play/analysis.html" },
 ];
 
 export const NOTICE_EN = "NOT AN OFFICIAL Polytopia PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MIDJIWAN.";
@@ -504,15 +504,14 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
           <section id="code">
             <h2>데모</h2>
             <p style={{ color: "var(--mute)", margin: "0 0 14px" }}>
-              브라우저에서 바로 실행되는 두 가지 도구입니다. 사람이 직접 플레이하는 모드(싱글·Pass &amp; Play)는 포함하지 않으며 공개 계획도 없습니다.
+              브라우저에서 바로 실행되는 두 가지 도구입니다. 한국어/English는 도구 안에서 바꿀 수 있습니다. 사람이 직접 플레이하는 모드(싱글·Pass &amp; Play)는 포함하지 않으며 공개 계획도 없습니다.
             </p>
             <div style={{ display: "grid", gap: 10 }}>
               {DEMOS.map((d) => (
                 <div key={d.name} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "14px 16px" }}>
                   <b style={{ color: "var(--text)" }}>{d.name}</b>
                   <div style={{ color: "var(--mute)", margin: "4px 0 10px" }}>{d.desc}</div>
-                  <a href={d.ko} style={{ marginRight: 14 }}>한국어</a>
-                  <a href={d.en}>English</a>
+                  <a href={d.href}>열기 →</a>
                 </div>
               ))}
             </div>
