@@ -10,19 +10,19 @@ import React, { useState } from "react";
 
 /* ---------------------------------------------------------------------------
  * 설정 플래그 — 섹션을 켜고 끄는 곳
- *   true  : 섹션을 보여줌 (현재는 "허가 확인 후 공개 예정" 자리표시, 비활성)
+ *   true  : 섹션을 보여줌 (showCode = 데모 섹션, showVideo = 영상 자리표시)
  *   false : 섹션 자체를 숨김
- * 실제 링크/영상은 허가 확인 후, 이 파일에서 직접 연결하세요. (지금은 링크 없음)
+ *   영상은 허가·준비가 끝나면 이 파일에서 직접 연결하세요.
  * ------------------------------------------------------------------------- */
 export const CONFIG = {
   showCode: true,
   showVideo: true,
 };
 
-/* 허가 확인 후 공개할 예정 항목 (자리표시용 텍스트일 뿐, 링크·실행 기능 없음) */
-export const PLANNED_RELEASES = [
-  { name: "실전용 다음 수 계산기", desc: "실제 대국에서 쓸 수 있는 next move calculator" },
-  { name: "봇 대 봇 관전 기능", desc: "봇끼리 대국하는 모습을 지켜보는 관전 모드" },
+/* 데모 파일은 레포의 play/ 폴더에 있습니다 */
+const DEMOS = [
+  { name: "봇 대 봇 관전", desc: "봇끼리 대국하는 모습을 지켜보는 관전 모드. 봇 수·부족·난이도·맵을 정할 수 있습니다.", ko: "play/spectator_ko.html", en: "play/spectator_en.html" },
+  { name: "실전 분석 (다음 수 계산기)", desc: "실제 대국의 판을 옮겨 넣으면 봇이 이번 턴의 최선의 수를 계산합니다.", ko: "play/analysis_ko.html", en: "play/analysis_en.html" },
 ];
 
 export const NOTICE_EN = "NOT AN OFFICIAL Polytopia PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MIDJIWAN.";
@@ -336,7 +336,7 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
             <a href="#overview">개요</a>
             <a href="#structure">구조</a>
             <a href="#results">결과</a>
-            {CONFIG.showCode && <a href="#code">코드</a>}
+            {CONFIG.showCode && <a href="#code">데모</a>}
             {CONFIG.showVideo && <a href="#video">영상</a>}
             {onBack && <button className="back" onClick={onBack}>← 포트폴리오</button>}
           </nav>
@@ -499,22 +499,22 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
           </div>
         </section>
 
-        {/* ───────────── 코드 (자리표시) ───────────── */}
+        {/* ───────────── 데모 ───────────── */}
         {CONFIG.showCode && (
           <section id="code">
-            <h2>코드</h2>
-            <div className="ph" aria-disabled="true">
-              <strong>허가 확인 후 공개 예정</strong>
-              봇 코드와 직접 플레이할 수 있는 버전(싱글 포함)은 게임사 허가 여부를 확인하기 전까지 공개하지 않습니다.
-              <ul className="plain" style={{ listStyle: "none", padding: 0, margin: "14px auto 0", maxWidth: 440, textAlign: "left" }}>
-                {PLANNED_RELEASES.map((r) => (
-                  <li key={r.name} style={{ display: "flex", gap: 10, alignItems: "baseline", margin: "6px 0" }}>
-                    <span className="tag" style={{ margin: 0, flex: "none" }}>허가 후</span>
-                    <span><b style={{ color: "var(--text)" }}>{r.name}</b> — {r.desc}</span>
-                  </li>
-                ))}
-              </ul>
-              <div><button type="button" disabled aria-disabled="true">공개 전</button></div>
+            <h2>데모</h2>
+            <p style={{ color: "var(--mute)", margin: "0 0 14px" }}>
+              브라우저에서 바로 실행되는 두 가지 도구입니다. 사람이 직접 플레이하는 모드(싱글·Pass &amp; Play)는 포함하지 않으며 공개 계획도 없습니다.
+            </p>
+            <div style={{ display: "grid", gap: 10 }}>
+              {DEMOS.map((d) => (
+                <div key={d.name} style={{ border: "1px solid var(--line)", borderRadius: 12, padding: "14px 16px" }}>
+                  <b style={{ color: "var(--text)" }}>{d.name}</b>
+                  <div style={{ color: "var(--mute)", margin: "4px 0 10px" }}>{d.desc}</div>
+                  <a href={d.ko} style={{ marginRight: 14 }}>한국어</a>
+                  <a href={d.en}>English</a>
+                </div>
+              ))}
             </div>
           </section>
         )}
@@ -536,7 +536,7 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
 
         <footer>
           <span className="notice-b">{NOTICE}</span>
-          이 페이지의 도식·차트·로고·색 구성은 모두 직접 제작했으며, 게임 아트·스크린샷·게임 수치 데이터·실행 가능한 코드나 데모는 포함하지 않습니다.
+          이 페이지의 도식·차트·로고·색 구성은 모두 직접 제작했으며, 게임 아트·스크린샷은 포함하지 않습니다. 데모는 사람이 직접 플레이할 수 없는 관전·분석 도구입니다.
         </footer>
       </div>
     </div>

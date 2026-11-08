@@ -26,3 +26,7 @@ scripts/template.html ← HTML 틀 (제목·설명·아이콘)
 
 ## 배포
 GitHub Pages: Settings → Pages → Branch `main` / `(root)`
+
+## 데모 (play/)
+
+`play/` 폴더에 관전·실전 분석 데모(한/영)가 있고, Pages 워크플로가 `index.html`과 함께 배포합니다. 사람이 직접 플레이하는 모드(싱글·Pass & Play)는 포함하지 않습니다.

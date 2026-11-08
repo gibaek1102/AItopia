@@ -18,8 +18,8 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
-      - name: Stage only the page
-        run: mkdir _site && cp index.html _site/ && touch _site/.nojekyll
+      - name: Stage the page and the demo files
+        run: mkdir _site && cp index.html _site/ && cp -r play _site/play && touch _site/.nojekyll
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
