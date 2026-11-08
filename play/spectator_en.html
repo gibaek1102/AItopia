@@ -5776,8 +5776,8 @@ const SOL = { net: null, name: '', info: '', dims: null };
   SOL.unload = () => { SOL.net = null; DIFFS.solaris.hide = 1; };
 
   // ---------------------------------------------------------------- playing a turn
-  DIFFS.solaris = Object.assign({}, DIFFS.lunaris, { n: 'Solaris 1.0', ob: 0, sol: 1, hide: 1, custom: 1 });
-  BOT_ELO.solaris = 988; // 1β: 30 pairs vs Hard (930), score 0.583 (95% CI 0.51-0.66) -> about +58; bot-vs-bot estimate, not measured against people // ob 0: same income as a human, like the training seats
+  DIFFS.solaris = Object.assign({}, DIFFS.lunaris, { n: 'pre-Solaris', ob: 0, sol: 1, hide: 1, custom: 1 });
+  BOT_ELO.solaris = 988; // pre-Solaris: 30 pairs vs Hard (930), score 0.583 (95% CI 0.51-0.66) -> about +58; bot-vs-bot estimate, not measured against people // ob 0: same income as a human, like the training seats
   // The policy seat is human-flagged while it plays (as in training): level-up rewards come to the policy, income has no bot bonus.
   SOL.begin = function (g, pid) { const p = g.players[pid]; const st = { pid, steps: 0, bad: new Set(), ai: p.ai, diff: p.diff }; p.ai = false; p.diff = null; CURG = g; return st; };
   SOL.finish = function (g, st) { const p = g.players[st.pid]; p.ai = st.ai; p.diff = st.diff; };
@@ -6771,7 +6771,7 @@ function setup(){
 // ---------- Solaris bot turn: decisions are sliced into ~40 ms chunks so the page stays responsive ----------
 function solBotTurn(g,pid,cb){
   const myId=GAMEID, eb=$('endBtn'), nm=TRIBES[g.players[pid].tribe].n, t0=Date.now();
-  if(!SOL.net){ toast('No Solaris weights, so Lunaris plays this turn instead',3200); try{ aiTurnCore(g,pid); }catch(e){ console.error(e); } cb(); return; }
+  if(!SOL.net){ toast('No pre-Solaris weights, so Lunaris plays this turn instead',3200); try{ aiTurnCore(g,pid); }catch(e){ console.error(e); } cb(); return; }
   const doRv=!g.noReview&&!g.slowReview&&typeof reviewStart==='function'; // accuracy review like the other bots (otherwise the review screen shows a dash)
   if(doRv) try{ reviewStart(g,pid); }catch(e){}
   const st=SOL.begin(g,pid); let fired=false;
@@ -6780,7 +6780,7 @@ function solBotTurn(g,pid,cb){
     if(myId!==GAMEID){ SOL.finish(g,st); return; }
     try{ const t1=Date.now(); while(Date.now()-t1<40){ if(SOL.act(g,st)==='end'){ if(!fired){ fired=true; SOL.finish(g,st); rvEnd(); cb(); } return; } } }
     catch(e){ console.error(e); if(!fired){ fired=true; SOL.finish(g,st); try{ aiTurnCore(g,pid); }catch(e2){} rvEnd(); cb(); } return; }
-    eb.textContent=`${nm} Solaris ${Math.round((Date.now()-t0)/1000)}s`; setTimeout(tick,0);
+    eb.textContent=`${nm} pre-Solaris ${Math.round((Date.now()-t0)/1000)}s`; setTimeout(tick,0);
   };
   tick();
 }
