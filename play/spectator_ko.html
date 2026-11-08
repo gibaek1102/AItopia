@@ -303,7 +303,7 @@ const DIFFS = {
   super:{hide:1,n:'Super',skill:1,agg:1.1,plans:4,look:2,ms:700,ob:3,mood:-30,custom:1},
   ultra:{hide:1,n:'Ultra',skill:1,agg:1.1,plans:8,look:2,ms:1100,ob:3,mood:-30,custom:1},
   hyper:{hide:1,n:'Hyper',skill:1,agg:1.1,plans:14,look:2,ms:1600,ob:3,mood:-30,custom:1},
-  max:{n:'Max',skill:1,agg:1.1,plans:24,look:2,ms:2400,ob:3,mood:-30,custom:1},
+  max:{hide:1,n:'Max',skill:1,agg:1.1,plans:24,look:2,ms:2400,ob:3,mood:-30,custom:1},
   // Lunaris: Max's candidate plans + beam search over unit moves + adversarial opponent replies + local refinement
   lunaris:{n:'Lunaris 1.0',skill:1,agg:1.1,plans:24,look:2,ms:2000,ob:3,mood:-30,custom:1,lunaris:1},
 };
@@ -6695,14 +6695,14 @@ function load(){ try{ const s=localStorage.getItem(SAVE); if(!s) return null; co
 // ---------- setup ----------
 function maxBots(n){ return maxPlayers(n)-1; }
 function setup(){
-  const st={tribe:0,bots:2,diff:'max',size:16,map:'continents',botList:[],tms:120,spec:true,specDiff:'lunaris',specT:50,dom:true,off:true,pp:false,humans:2,ppTribes:[-1,-1,-1,-1,-1]};
+  const st={tribe:0,bots:2,diff:'lunaris',size:16,map:'continents',botList:[],tms:120,spec:true,specDiff:'lunaris',specT:50,dom:true,off:true,pp:false,humans:2,ppTribes:[-1,-1,-1,-1,-1]};
   try{ const p=JSON.parse(localStorage.getItem('vpoly-setup')||'null'); if(p) Object.assign(st,p); }catch(e){}
   st.spec=true; st.pp=false; st.humans=1; st.bots=Math.max(1,+st.bots||1);
-  if(!DIFFS[st.diff]||DIFFS[st.diff].hide) st.diff='max'; if(!DIFFS[st.specDiff]||DIFFS[st.specDiff].hide) st.specDiff='lunaris'; if(!MAPS[st.map]) st.map='continents';
+  if(!DIFFS[st.diff]||DIFFS[st.diff].hide) st.diff='lunaris'; if(!DIFFS[st.specDiff]||DIFFS[st.specDiff].hide) st.specDiff='lunaris'; if(!MAPS[st.map]) st.map='continents';
   if(!Array.isArray(st.botList)) st.botList=[];
   { const hb=(location.hash.match(/bot=(\w+)/)||[])[1]; if(hb&&DIFFS[hb]&&!DIFFS[hb].hide){ st.diff=hb; st.botList=[]; try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){} } }
   const fixBots=()=>{ while(st.botList.length<st.bots) st.botList.push({tribe:-1,diff:st.diff});
-    st.botList.forEach(b=>{ if(!DIFFS[b.diff]||DIFFS[b.diff].hide) b.diff='max'; }); }; // duplicate tribes are allowed (several bots may share a tribe, or match yours)
+    st.botList.forEach(b=>{ if(!DIFFS[b.diff]||DIFFS[b.diff].hide) b.diff='lunaris'; }); }; // duplicate tribes are allowed (several bots may share a tribe, or match yours)
   const saved=load();
   const render=()=>{
     st.spec=true; st.pp=false; if(!Array.isArray(st.ppTribes)) st.ppTribes=[-1,-1,-1,-1,-1]; st.humans=Math.max(2,Math.min(6,maxBots(st.size)+1,+st.humans||2)); st.bots=Math.min(st.bots,Math.max(0,maxBots(st.size)-(st.pp?st.humans-1:0))); fixBots();
