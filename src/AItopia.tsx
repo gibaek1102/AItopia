@@ -38,7 +38,7 @@ const RESULTS = {
     { label: "vs 엔진 내장 hard · 12x12 · 80턴 · 30쌍", score: 66.7, ci: 10.6, w: 29, d: 22, l: 9 },
     { label: "vs 엔진 내장 hard · 80턴 · 60쌍", score: 58.8, ci: null as number | null, w: 43, d: 55, l: 22 },
     { label: "vs 엔진 내장 max · 80턴", score: 58.3, ci: 11.3, w: 21, d: 28, l: 11 },
-    { label: "vs 외부 비교 봇 terranion@1 · 80턴", score: 15.8, ci: 6.8, w: 4, d: 11, l: 45 },
+    { label: "vs 외부 비교 봇 terranion@1 · 80턴 (재측정 17.1%)", score: 15.8, ci: 6.8, w: 4, d: 11, l: 45 },
     { label: "vs 외부 비교 봇 terranion@3 · 80턴", score: 10.8, ci: 6.1, w: 1, d: 11, l: 48 },
     { label: "vs 외부 비교 봇 terranion@10 · 80턴", score: 17.5, ci: 5.8, w: 1, d: 19, l: 40 },
   ],
