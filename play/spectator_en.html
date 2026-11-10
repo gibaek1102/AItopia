@@ -147,6 +147,8 @@ button.warn{background:var(--bad);color:#2a0705;border-color:transparent;font-fa
 <div id="toast"></div>
 <div id="modal" class="modal" hidden><div class="sheet" id="sheet"></div></div>
 <script id="eng">
+var __DET_ON=false,__DET_N=0,__DET_STEP=1; function NOW(){ if(__DET_ON){ __DET_N+=__DET_STEP; return __DET_N; } return Date.now(); }
+
 'use strict';
 // Virtual Polytopia engine v2 — data re-checked against wiki/namu/patch notes (Oct 2026).
 // v2.1 fact-check pass (17 Oct 2026): Cymanti rework 2.15, Aquarion Nov-2024 patch, 2025 Balance Pass, 2.16.3.
@@ -462,7 +464,7 @@ function genMap(g, mapType){
     for(let y=c.y-3;y<=c.y+3;y++) for(let x=c.x-3;x<=c.x+3;x++) if(okSpot(x,y)) cand.push({x,y,d:cheb(c.x,c.y,x,y)+Math.random()*0.5});
     cand.sort((a,b)=>a.d-b.d); let n=0; for (const q of cand){ if(n>=want) break; if(okSpot(q.x,q.y)){ cities.push(q); suburbs.push(q); n++; } } }); }
   // theoretical maximum = greedy packing of spacing-3 villages over the whole map
-  let maxN=0; { const all=[]; for(let y=1;y<N-1;y++) for(let x=1;x<N-1;x++) all.push({x,y}); shuffle(all); const tmp=cities.slice(); for(const q of all) if(far(q,tmp)){ tmp.push(q); maxN++; } }
+  let maxN=0; { const all=[]; for(let y=1;y<N-1;y++) for(let x=1;x<N-1;x++) all.push({x,y}); const tries=(mt.pre===0&&mt.sub===0)?60:1; /* Drylands: one random packing is far below the true maximum (so the 80% target left it sparse); take the best of many packings */ for(let k=0;k<tries;k++){ shuffle(all); const tmp=cities.slice(); let m=0; for(const q of all) if(far(q,tmp)){ tmp.push(q); m++; } if(m>maxN) maxN=m; } if(tries>1){ const lat=Math.pow(Math.ceil((N-2)/3),2)-cities.length; if(lat>maxN) maxN=lat; /* true lattice maximum (spacing 3) */ } }
   const preShare = mt.pre!==undefined ? mt.pre : 0.30, postShare = mt.post!==undefined ? mt.post : 0.60;
   { const want=Math.round(maxN*preShare), cs=[]; for(let y=1;y<N-1;y++) for(let x=1;x<N-1;x++) cs.push({x,y}); shuffle(cs); let n=0;
     for (const q of cs){ if(n>=want) break; if(okSpot(q.x,q.y)){ cities.push(q); n++; } } }
@@ -998,7 +1000,7 @@ function canMove0(u){ if (U(u).sk.has('auto') && !AUTO_OK) return false; if (U(u
 function canAttack(u){ return canAttackG(CURG,u); }
 function canAttack0(u){ const d=U(u); if (d.sk.has('auto') && !AUTO_OK) return false; return !u.frozen && !u.done && !u.at && !u.seal && !u.awed && d.r>0 && !d.sk.has('noattack') && (!u.mv || d.sk.has('dash')) && (d.a>0 || d.sk.has('convert') || d.sk.has('assim') || d.sk.has('dominate')); }
 // canMove/canAttack above are UI-light; the skate land restriction is enforced here:
-function canMoveG(g,u){ return canMove0(u) && (!g|| (!u.at || skActive(g,u,'escape'))); }
+function canMoveG(g,u){ return !u.pin && canMove0(u) && (!g|| (!u.at || skActive(g,u,'escape'))); } // u.pin: rgarr, the lone garrison of a threatened capital may attack from its tile but never leave it
 function canAttackG(g,u){ return canAttack0(u) && (!g|| (!u.mv || skActive(g,u,'dash'))); }
 function afterMoveEffects(g,u){
   const d=U(u);
@@ -1054,9 +1056,10 @@ function pushUnit(g,v,byOwner){
   killUnit(g,v,null); return false;
 }
 function forceSpawn(g,type,owner,x,y,home,base){
-  const occ=unitAt(g,x,y); if (occ) pushUnit(g,occ,owner);
+  // a pushed Centipede head leaves a body segment on its old tile, so keep pushing until the spawn tile is empty (a segment is moved with its head)
+  for (let k=0; k<8; k++){ const occ=unitAt(g,x,y); if (!occ) break; const hd=(occ.head!=null)?unitById(g,occ.head):null; pushUnit(g,hd&&hd.owner===occ.owner?hd:occ,owner); }
   if (unitAt(g,x,y)) return null;
-  const s=spawn(g,type,owner,x,y,home); if (base) s.base=base; return s;
+  const s=spawn(g,type,owner,x,y,home); if (base) s.base=base; if (!(s.hp>0)) s.hp=UNITS[s.base].hp; /* naval types have no hp of their own: use the land unit inside (a ruin boat used to get hp undefined = unkillable) */ return s;
 }
 // ---- turn recording (bot-turn replay): only on the live game, only what the player can currently see ----
 var HREC=null; // whole-game move log for the replay viewer (live game only; never part of g, so search clones do not record)
@@ -1431,7 +1434,9 @@ function aiHostile(g,b,x){
   if (siegedBy(g,b,x)) return true; // anyone standing on our city is an enemy, whatever the mood
   return moodV(g,b,x) < -10;
 }
+function knowsTribe(g,a,b){ const pa=g.players[a].met, pb=g.players[b].met; return !!((pa&&pa[b])||(pb&&pb[a])); } // diplomacy needs a first meeting (seen each other), as in the game
 function proposePeace(g,a,b){ // a sends to b; needs Strategy to send (FW Strategy)
+  if (!knowsTribe(g,a,b)) return {ok:false,why:'Have not met this tribe yet'};
   if (!has(g,a,'strategy') || atPeace(g,a,b)) return {ok:false,why:'Needs Strategy'};
   const d=ddir(g,a,b); if (d.offered===g.turn) return {ok:false,why:'Already proposed this turn'};
   d.offered=g.turn;
@@ -1450,7 +1455,7 @@ function breakPeace(g,a,b){
 function embassyCost(g,a){ let n=0; for (const k in g.dip) if (k.startsWith(a+'>') && g.dip[k].emb) n++; return 4+2*n; } // namu: 4, 6, 8…
 function embassyTargets(g,a){
   if (!has(g,a,'diplomacy')) return [];
-  return g.players.filter(q=>q.id!==a && q.alive && !ddir(g,a,q.id).emb && dsym(g,a,q.id).state!=='war' && g.cities.some(c=>c.owner===q.id && c.capital && (c.origCap==null||c.origCap===q.id))).map(q=>q.id);
+  return g.players.filter(q=>q.id!==a && q.alive && knowsTribe(g,a,q.id) && !ddir(g,a,q.id).emb && dsym(g,a,q.id).state!=='war' && g.cities.some(c=>c.owner===q.id && c.capital && (c.origCap==null||c.origCap===q.id))).map(q=>q.id);
 }
 function buildEmbassy(g,a,b){
   const cost=embassyCost(g,a), p=g.players[a]; if (!embassyTargets(g,a).includes(b) || p.stars<cost) return false;
@@ -1462,7 +1467,7 @@ function embassyIncome(g,pid){ if(!g.dip) return 0; let s=0; for (const q of g.p
 // bots' diplomacy at the start of their turn
 function aiDiplomacy(g,b){
   if (!g.dip) g.dip={};
-  for (const q of g.players){ if(q.id===b||!q.alive) continue;
+  for (const q of g.players){ if(q.id===b||!q.alive||!knowsTribe(g,b,q.id)) continue;
     const m=mood(g,b,q.id).v, s=dsym(g,b,q.id);
     if (s.state==='peace'){ if (m<-45 && Math.random()<0.25) breakPeace(g,b,q.id); continue; }
     if (s.state!=='war' && has(g,b,'strategy') && m>=35 && ddir(g,b,q.id).offered<g.turn-4 && Math.random()<0.35){
@@ -1676,7 +1681,7 @@ function aiContext(g,pid){
   const frontier=[];
   g.tiles.forEach((t,i)=>{
     if (!exp[i]) return;
-    if (t.village) ctx.goals.push({i,v:24,kind:'village'});
+    if (t.village) ctx.goals.push({i,v:24,kind:'village',near:0});
     if (t.city>=0){ const c=g.cities[t.city];
       if (c.owner!==pid){ if (aiHostile(g,pid,c.owner)){ const def=vis[i]?g.ug[i]:null; let dv=0; if (g.domination && c.capital && !diffOf(g,pid).oldfix){ const others=g.cities.filter(q=>q.capital&&q.id!==c.id); dv = others.every(q=>q.owner===pid) ? 140 : 26; } // Domination: the last capital wins the game
         let sig=0; if ((diffOf(g,pid)||{}).rsig && vis[i] && !def && !g.units.some(e=>e.owner===c.owner&&UNITS[e.base].a>0&&cheb(e.x,e.y,c.x,c.y)<=4)) sig=c.capital?16:9; // R15: an open city with no defenders in sight is the opening to strike
@@ -1703,6 +1708,7 @@ function aiTechScore(g,pid,t,ctx,terr){
   if (t==='farming') v+=resVal('crop')*2+(sp==='el'&&resVal('crop')>0&&!((diffOf(g,pid)||{}).oldfix)?3:0); // Elyrion cannot hunt: crops are its main way to grow
   if (t==='mining') v+=resVal('metal')*2;
   if (t==='ramming' && sp==='aq' && !(diffOf(g,pid)||{}).noaq) v+=resVal('aquacrop')*2; // Aquaculture unlocks the Aqua Farm (wiki), like Farming for crops
+  if (t==='navigation' && sp==='aq' && (diffOf(g,pid)||{}).rjelly && g.turn>=3) v+=5; // rjelly: Navigation unlocks the Jelly
   if (t==='forestry') v+=terr.filter(q=>q.t===T_FOREST&&!q.imp).length*0.6;
   if (t==='forestry' && sp==='el' && !(diffOf(g,pid)||{}).noel && !(diffOf(g,pid)||{}).noelS) v+=4; // Sanctuary = Elyrion's star engine
   if (t==='climbing') v+=Math.min(3,resVal('metal'))*0.8+terr.filter(q=>q.t===T_MTN).length*0.3;
@@ -1827,6 +1833,12 @@ function aiLevelUpSets(g,pid,opts){
 }
 // rpolar: Eric's Polaris army. Mooni in numbers (4-6 by turn ~12-16; none on turn 1-2: the Warrior comes first), then Battle Sled, Ice Fortress, Mind Bender, a few Ice Archers; plain Warrior/Rider/Catapult only as filler
 function aiWaterShare(g){ if (g._wfT!==g.turn){ let w=0; for (const t of g.tiles) if (t.t===T_WATER||t.t===T_OCEAN) w++; g._wf=w/g.tiles.length; g._wfT=g.turn; } return g._wf; } // share of water on the map (cached per turn)
+// rlvl (Eric's growth rule): every city MUST reach level 3; levels 4-5 only when a Giant is wanted (an enemy is near, or we have no super unit yet by turn 12); past level 5 stop unless stars are piling up
+function aiGiantNeed(g,pid,c){
+  for (const e of g.units) if (e.owner!==pid && !e.hidden && aiHostile(g,pid,e.owner) && UNITS[e.base].a>0 && cheb(e.x,e.y,c.x,c.y)<=6) return true;
+  if (g.turn>=12 && !g.units.some(u=>u.owner===pid && U(u).sk.has('super'))) return true;
+  return false;
+}
 function aiEnemySuper(g,pid){ for (const e of g.units) if (e.owner!==pid && !e.hidden && aiHostile(g,pid,e.owner) && U(e).sk.has('super')) return true; return false; }
 function aiPolarBonus(g,pid,ty,mix,nc,full){
   const cnt={}; for (const u of g.units) if (u.owner===pid) cnt[u.base]=(cnt[u.base]||0)+1;
@@ -1841,6 +1853,7 @@ function aiPolarBonus(g,pid,ty,mix,nc,full){
   else if (T>=14 && ['warrior','rider','catapult','swordsman','knight'].includes(ty)) b-=0.35;
   return b;
 }
+const ALLOC_ST=new WeakMap(); // alloc (flag): cumulative stars spent per category {e:tiles,m:units,t:techs}
 function aiSpend(g,pid,ctx,mode){
   const p=g.players[pid];
   for (let guard=0; guard<40; guard++){
@@ -1876,9 +1889,13 @@ function aiSpend(g,pid,ctx,mode){
         if (o.id==='icebank'){ if ((_DD.rpolar||_DD.rpbank) && sp0==='po' && aiWaterShare(g)>=0.2) opts.push({k:'tile',x,y,id:o.id,c:o.c,s:(g.turn>=12?2.2:0.7)}); continue; } // Ice Bank: +2 stars per 20 frozen tiles (it was never built before: 0 pop)
         if (o.pop<=0) continue;
         const c=g.cities[t.cityOf];
-        let lvlBoost=1; if (_DD.rpolar && sp0==='po' && g.turn>=15 && c.level>=3 && c.level<5) lvlBoost=1.8; // Gaami needs a level-5 city: push the cities stuck at level 3-4
+        let lvlBoost=1;
+        if (_DD.rlvl){ if (c.level<3) lvlBoost=2; else if (c.level<5) lvlBoost=aiGiantNeed(g,pid,c)?1:0.4; else lvlBoost=p.stars>60?0.5:0.1; }
+        if (_DD.rpolar && sp0==='po' && g.turn>=15 && c.level>=3 && c.level<5) lvlBoost=1.8; // Gaami needs a level-5 city: push the cities stuck at level 3-4
         const lvlUp = c.pop+o.pop>=c.level+1 ? 0.25 : 0;
-        opts.push({k:'tile',x,y,id:o.id,c:o.c,s:(o.pop/o.c+lvlUp)*lvlBoost});
+        let _ts=(o.pop/o.c+lvlUp)*lvlBoost; // rinc: early income buildings (farm/lumber/mine/windmill/sawmill) get a score multiplier until rincT
+        if (_DD.rinc && g.turn<=(+_DD.rincT||15) && ['farm','lumber','mine','windmill','sawmill'].includes(o.id)) _ts*=+_DD.rinc;
+        opts.push({k:'tile',x,y,id:o.id,c:o.c,s:_ts});
       }
     });
     // techs
@@ -1897,6 +1914,7 @@ function aiSpend(g,pid,ctx,mode){
       let need=0.18 + (threat>0?0.9:0) + (unclaimed>0 && myUnits<myCities.length*2+2?0.45:0) + (g.turn>6?0.25:0) + (g.turn>14?0.2:0);
       if (myUnits>=myCities.length*3+3) need*=0.4;
       need*=AIP.unit;
+      if (c.capital && (diffOf(g,pid)||{}).rdef1 && g.turn<=(+(diffOf(g,pid)||{}).rdef1T||18)) need*=+(diffOf(g,pid)||{}).rdef1; // rdef1 (C5): early capital keeps training garrison units (no pinning)
       let best=null,bs=-1;
       const coastal=DIRS.some(([dx,dy])=>inb(g,c.x+dx,c.y+dy)&&isWater(tile(g,c.x+dx,c.y+dy)));
       const mix=aiMix(g,pid,coastal);
@@ -1908,6 +1926,8 @@ function aiSpend(g,pid,ctx,mode){
         if (ty==='swordsman' && !diffOf(g,pid).nosw2){ if (TRIBES[p.tribe].id==='vengir') s+=1.0; else if (diffOf(g,pid).swall) s+=diffOf(g,pid).swall; } // Vengir: the swordsman is the tribe's strength (cheap warriors were crowding it out)
         if (threat>0 && d.d>=3) s+=0.5;
         if ((_DD.rpolar||_DD.rpmooni) && sp0==='po') s+=aiPolarBonus(g,pid,ty,mix,myCities.length,!!_DD.rpolar); // rpolar: Mooni in numbers, Battle Sled / Ice Fortress / Mind Bender / Ice Archer in the mix
+        if (ty==='jelly' && _DD.rjelly) s+=+_DD.rjelly;
+        if (ty==='battlesled' && _DD.rsled && sp0==='po' && g.turn<=(+_DD.rsledT||10)) s+=+_DD.rsled; // rsled (C4): early Battle Sled clears the sea (Polaris) // rjelly: Aquarion's Jelly (atk 2 / def 2 / hp 20, cost 8, tentacles hit all neighbours, no retaliation) is far better value than the generic score says
         if (unclaimed>0 && d.m>=2) s+=0.4;
         if (role==='siege' && mix.walls) s+=0.6;
         if (s>bs){bs=s;best=ty;} }
@@ -1915,7 +1935,15 @@ function aiSpend(g,pid,ctx,mode){
     }
     aiLevelUpSets(g,pid,opts);
     if (typeof SPEND_CAP!=='undefined' && SPEND_CAP){ SPEND_CAP.opts=opts; return; }
-    const aff=opts.filter(o=>o.c<=p.stars);
+    // rres: keep a star floor for tiles/techs when no city is threatened (units are never held back)
+    const _DR = diffOf(g,pid)||{}; let _floor = 0;
+    if (_DR.rres && g.turn>=(+_DR.rresT||6)){ const _thr=g.cities.some(c=>c.owner===pid && ctx.threat[c.y*g.N+c.x]>0); if(!_thr && !ctx._jupRushed) _floor=+_DR.rres; }
+    // alloc (flag, default off): steer cumulative star shares toward per-turn targets. e=economy tiles, m=military units, t=techs
+    if (_DR.alloc){ const A=_DR.alloc; let st=ALLOC_ST.get(g); if(!st){ st={e:0,m:0,t:0}; ALLOC_ST.set(g,st); }
+      const tot=(st.e+st.m+st.t)||1; const thr=myCities.filter(c=>ctx.threat[c.y*g.N+c.x]>0).length/Math.max(1,myCities.length);
+      const tm=Math.min(A.hi,Math.max(A.lo,A.m0+A.m1*thr+A.m2*g.turn)); const tg={m:tm,t:A.tgt,e:1-tm-A.tgt}; const sh={e:st.e/tot,m:st.m/tot,t:st.t/tot};
+      for (const o of opts){ const cat=o.k==='tile'?'e':o.k==='unit'?'m':'t'; o.s*=Math.max(0.2,1+A.G*(tg[cat]-sh[cat])); if (A.eT && g.turn<=A.eT){ if (cat==='m' && A.eu!=null) o.s*=A.eu; if (cat==='e' && A.eb!=null) o.s*=A.eb; } } }
+    const aff=opts.filter(o=>o.c<=p.stars-(o.k==='unit'?0:_floor));
     if (!aff.length) break;
     if (ctx.skill<1 && Math.random()<(1-ctx.skill)*0.3) break;
     aff.sort((a,b)=>b.s-a.s);
@@ -1929,6 +1957,7 @@ function aiSpend(g,pid,ctx,mode){
     else if (o.k==='tech') ok=research(g,pid,o.t);
     else if (o.k==='unit') ok=!!train(g,g.cities[o.city],o.ty);
     if (!ok) break;
+    if (_DR.alloc){ const st=ALLOC_ST.get(g); st[o.k==='tile'?'e':o.k==='unit'?'m':'t']+=o.c||0; }
   }
 }
 function aiEvalAttack(g,u,e,px,py,ctx){
@@ -1943,6 +1972,9 @@ function aiEvalAttack(g,u,e,px,py,ctx){
   if (diffOf(g,u.owner).rpolar){ const es=U(e).sk.has('super');
     if (es && (d.sk.has('freeze')||d.sk.has('autofreeze'))) s+=6;                     // freeze the enemy super unit first
     if (es && d.sk.has('convert') && (e.frozen||e.fz)) s+=14; }                       // then Mind Bender converts it
+  if (diffOf(g,u.owner).rtail){ // rtail: cut a Centipede from the tail. Killing the head only promotes the first segment to a fresh 20-hp head; hitting the segments shrinks it for good.
+    if (e.type==='segment' && e.head!=null){ const h=unitById(g,e.head), ix=h&&h.segs?h.segs.indexOf(e.id):-1; if (ix>=0) s+=3+1.2*ix+(r.kill?3:0); }
+    else if (e.type==='centipede' && e.segs && e.segs.length && r.kill) s-=Math.min(6,1.5*e.segs.length); }
   if (U(e).sk.has('convert') && U(e).a<=0 && diffOf(g,u.owner).rconv) s+=10+(r.kill?6:0); // rconv: kill enemy Mind Benders first (they take our units, e.g. the Centipede)
   if (px!==u.x||py!==u.y) s-=ctx.threat[py*g.N+px]*(u.hp<maxHp(u)*0.5?0.5:0.15);
   { const et=tile(g,e.x,e.y); if (et.city>=0){ s+=3; if (g.cities[et.city].owner===u.owner) s+=12+(r.kill?10:0); else if (ctx.aggr>1.2){ s+=4+r.ret*0.45; } } } // breaking a siege on our own city comes first
@@ -2012,11 +2044,13 @@ function aiMoveUnit(g,u,ctx){
   const tw = (hpR<0.5?0.7:0.22)*(ctx.aggr>1.3?0.45:ctx.aggr>0.9?0.75:1)*AIP.tw;
   const foes=diffOf(g,u.owner).oldfix?[]:g.units.filter(e=>e.owner!==u.owner && !e.hidden && !e.frozen && UNITS[e.base].a>0 && !U(e).sk.has('noattack') && ctx.vis[e.y*N+e.x] && !atPeace(g,u.owner,e.owner) && cheb(e.x,e.y,u.x,u.y)<=9);
   const gs=nearGoals(g,u,ctx), cls=moveClass(g,u), supportU=!diffOf(g,u.owner).oldfix && (U(u).sk.has('heal')||U(u).sk.has('swarm')) && !U(u).sk.has('naval'); // healers/swarmers (Shaman, Mindbender...) stay with the fighters; freezers and infiltrators go forward
+  const rgrp=!!diffOf(g,u.owner).rgrp && u.base==='giant', mates=rgrp?g.units.filter(o=>o!==u&&o.owner===u.owner&&o.base==='giant'):[];
   const scoreAt=(i,inf)=>{ const t=g.tiles[i]; let s=aiGoalScore(g,u,ctx,i,gs,cls);
     s-=ctx.threat[i]*tw*(d.d>=3?0.6:1);
     if (t.t===T_FOREST&&has(g,u.owner,'archery')||t.t===T_MTN&&has(g,u.owner,'climbing')) s+=0.8;
     if (t.city>=0&&g.cities[t.city].owner===u.owner) s+=0.6;
     if (inf && inf.emb) s+=0.3;
+    if (rgrp && foes.length){ const tx=i%N, ty=(i/N)|0; let dm=99; for (const o of mates){ const dd=cheb(o.x,o.y,tx,ty); if (dd<dm) dm=dd; } if (dm<99) s-=0.45*Math.min(Math.max(dm-1,0),5); } // rgrp: Giants fight as a group
     if (foes.length && !(t.city>=0&&g.cities[t.city].owner===u.owner)){ // exposure: do not end the move where visible enemies can kill us for free
       const ox=u.x, oy=u.y; u.x=i%N; u.y=(i/N)|0; let tot=0;
       for (const e of foes){ const de=U(e); if (cheb(e.x,e.y,u.x,u.y)>de.m+de.r+(e.boost?1:0)) continue; try{ tot+=calc(g,e,u,e.x,e.y).dmg; }catch(_){} }
@@ -2144,7 +2178,7 @@ function aiTurn(g,pid){
   let K = g._planning ? 1 : (D.plans||1);
   if (K>1) K=Math.max(2,Math.round(K*Math.min(1,320/(g.N*g.N))));
   if (K<=1) return aiTurnCore(g,pid);
-  const before=evalAll(g), t0=Date.now(), seedR=mulberry((Date.now()^(pid*7919))>>>0);
+  const before=evalAll(g), t0=NOW(), seedR=mulberry((Math.floor(Math.random()*4294967296))>>>0);
   let best=null, base=null; const crn=(seedR()*4294967296)>>>0;
   for (let k=0;k<K;k++){
     const params = k===0 ? {agg:1,tw:1,unit:1,tech:1} : {agg:0.75+seedR()*0.7, tw:0.5+seedR()*1.1, unit:0.6+seedR()*0.9, tech:0.6+seedR()*0.9};
@@ -2153,7 +2187,7 @@ function aiTurn(g,pid){
     let sc=-1e9; try { withRng(seed,params,()=>{ aiTurnCore(c,pid); sc=lookahead(c,pid,before,D.look||1); }); } catch(e){}
     if (k===0) base={sc,seed,params};
     if (!best || sc>best.sc) best={sc,seed,params};
-    if (Date.now()-t0>(D.ms||900) && k>=1) break;
+    if ((D.budgetK ? k+1>=D.budgetK : NOW()-t0>(D.ms||900)) && k>=1) break;
   }
   if (best!==base && best.sc<base.sc+2) best=base; // only leave the default plan for a clear gain
   rebuildGrid(g);
@@ -2222,7 +2256,7 @@ function rvLook(c,pid,before,crn){ c._planning=true; c._crn=crn; if(pid===0) c._
   const v=lookahead(c,pid,before,1); if(!rvNN()) return v; if(v<=-1e5||!c.players[pid].alive) return 0; return 100*nnValue(c,pid); }
 function reviewStart(g,pid){
   if (g.noReview) return;
-  const t0=Date.now();
+  const t0=NOW();
   const before=evalAll(g), crn=((g.turn*7919)^(pid*104729)^0x5bd1e995)>>>0;
   let ref=null;
   try{
@@ -2235,7 +2269,7 @@ function reviewStart(g,pid){
   }catch(e){ ref=null; }
   rebuildGrid(g); // restore CURG
   g._rv={pid,before,ref,crn,turn:g.turn,caps:(g.players[pid].stats||{}).captures||0,kills:(g.players[pid].stats||{}).kills||0,cities:numCities(g,pid),units:g.units.filter(u=>u.owner===pid).length};
-  if (Date.now()-t0>1500 && pid!==0) g.slowReview=1;
+  if (NOW()-t0>1500 && pid!==0 && !(diffOf(g,pid)||{}).budgetK) g.slowReview=1;
 }
 const RV_NN=6; // win-% points lost that cost about 63% accuracy
 function classifyNN(acc,gh,gr,missed){
@@ -2654,7 +2688,7 @@ function beamTurn(g0, pid, sign, P){
       }
     }
     next.sort((a, b) => sign * (b.V - a.V)); beam = next.slice(0, P.W);
-    if (P.deadline && Date.now() > P.deadline) break;
+    if (P.deadline && NOW() > P.deadline) break;
   }
   // purchases
   let work = beam.slice(0, P.Wk).map(s => ({ g: s.g, V: s.V, macros: s.macros, econ: [] })), done = [];
@@ -2670,7 +2704,7 @@ function beamTurn(g0, pid, sign, P){
     }
     if (!next.length){ work = []; break; }
     next.sort((a, b) => sign * (b.V - a.V)); work = next.slice(0, P.We);
-    if (P.deadline && Date.now() > P.deadline) break;
+    if (P.deadline && NOW() > P.deadline) break;
   }
   done.push(...work);
   done.sort((a, b) => sign * (b.V - a.V));
@@ -2736,7 +2770,7 @@ const SF_ITERS = [
   { W: 192, B: 18, Wk: 24, Be: 8, We: 18, maxBuy: 12, Kc: 48 },
 ];
 function makeSearcher(root, o){
-  o = o || {}; const t0 = Date.now(), budget = o.ms || 8000, me = o.me != null ? o.me : 0;
+  o = o || {}; const t0 = NOW(), budget = o.ms || 8000, me = o.me != null ? o.me : 0;
   SME = me;
   const state = { it: 0, best: null, log: [], evaluated: new Set(), done: false, rng: mulberry((o.seed || 12345) >>> 0), phase: 'max', mk: 0, pool: [], idle: 0 };
   const oppP = o.oppP || { W: 2, B: 4, Wk: 1, Be: 2, We: 1, maxBuy: 3, Kc: 1 }; // advisor passes a wider opponent search for long budgets
@@ -2810,7 +2844,7 @@ function makeSearcher(root, o){
     if (state.done) return;
     // memory guards for very long thinking times (hours): trim the candidate log, clear the evaluated-position set
     if ((++gk & 63) === 0){ if (state.log.length > 8000) state.log.splice(0, state.log.length - 4000); if (state.evaluated.size > 1500000) state.evaluated.clear(); }
-    if (Date.now() - t0 > budget){ state.done = true; return; }
+    if (NOW() - t0 > budget){ state.done = true; return; }
     const svr = Math.random; Math.random = state.rng;
     try {
       if (state.phase === 'max'){ // Max's candidate set
@@ -2823,7 +2857,7 @@ function makeSearcher(root, o){
         if (state.it >= ITS.length){ state.phase = 'refine'; return; }
         const it = ITS[state.it];
         const cs = beamTurn(root, me, 1, Object.assign({ deadline: t0 + budget }, it));
-        for (const cand of cs){ if (Date.now() > t0 + budget) break; consider(cand.g, { macros: cand.macros, econ: cand.econ }, 'sf' + state.it); }
+        for (const cand of cs){ if (NOW() > t0 + budget) break; consider(cand.g, { macros: cand.macros, econ: cand.econ }, 'sf' + state.it); }
         state.it++; return;
       }
       if (state.phase === 'refine'){ if (!refine()) state.phase = (o.deep !== false && budget >= (o.deepMinMs != null ? o.deepMinMs : 20000)) ? 'deep' : o.fill ? 'fill' : 'end'; return; }
@@ -2878,7 +2912,7 @@ function makeSearcher(root, o){
       const wide = (typeof beamCap === 'function' ? beamCap : x => x)({ W: Math.round(last.W * f), B: Math.min(48, last.B + 2 * r), Wk: Math.min(128, last.Wk + 4 * r), Be: Math.min(16, last.Be + r), We: Math.min(64, last.We + 2 * r), maxBuy: last.maxBuy, Kc: Math.min(256, last.Kc + 8 * r) });
       if (D.wideOn !== false){ const n0 = state.evaluated.size;
         const cs = beamTurn(root, me, 1, Object.assign({ deadline: t0 + budget }, wide));
-        for (const cand of cs){ if (Date.now() > t0 + budget) break; consider(cand.g, { macros: cand.macros, econ: cand.econ }, 'deep' + r); }
+        for (const cand of cs){ if (NOW() > t0 + budget) break; consider(cand.g, { macros: cand.macros, econ: cand.econ }, 'deep' + r); }
         if (state.evaluated.size === n0) D.wideOn = false; } // the beam has saturated: stop widening, keep deepening
       // (2) deep re-scoring queue
       const sig = look + '|' + JSON.stringify(opq), same = sig === D.sig;
@@ -2916,7 +2950,7 @@ function makeSearcher(root, o){
     for (let j = 0; j < k; j++) applyMacro(c, me, ms[j], ctx);
     rebuildGrid(c); const u = unitById(c, ms[k].id); if (!u) return true;
     for (const alt of genMacros(c, u, ctx, 8)){
-      if (Date.now() - t0 > budget) break;
+      if (NOW() - t0 > budget) break;
       if (JSON.stringify(alt) === JSON.stringify(ms[k])) continue;
       const nm = ms.slice(); if (alt.k === 'pass') nm.splice(k, 1); else nm[k] = alt;
       const d = fastClone(root); d._planning = true; d._noHostCheck = false; rebuildGrid(d); const cx2 = aiContext(d, me);
@@ -2940,14 +2974,14 @@ function makeSearcher(root, o){
       for (const m of ms) applyMacro(d0, me, m, cx0);
       rebuildGrid(d0); const cx1 = aiContext(d0, me);
       for (const op of spendOptions(d0, me, cx1).filter(q => q.c <= d0.players[me].stars).sort((x, y) => y.s - x.s).slice(0, 4)) variants.push([slimOpt(op)].concat(ec));
-      for (const ev of variants){ if (Date.now() - t0 > budget) break;
+      for (const ev of variants){ if (NOW() - t0 > budget) break;
         const d = fastClone(root); d._planning = true; d._noHostCheck = false; rebuildGrid(d); const cx2 = aiContext(d, me);
         for (const m of ms) applyMacro(d, me, m, cx2);
         let ok = true; for (const o2 of ev) if (!execOpt(d, me, o2)) ok = false; if (!ok) continue;
         consider(d, { macros: ms, econ: ev }, 'fill'); }
       return;
     }
-    for (let j = 0; j < 3; j++){ if (Date.now() - t0 > budget) break; state.mk++; const bp = botPlan(state.mk); if (bp) consider(bp.g, bp.plan, 'max'); }
+    for (let j = 0; j < 3; j++){ if (NOW() - t0 > budget) break; state.mk++; const bp = botPlan(state.mk); if (bp) consider(bp.g, bp.plan, 'max'); }
   }
   function finish(){
     SME = me;
@@ -2989,12 +3023,13 @@ function guardCities(g, pid){
   for (const c of cities){
     const gu0 = g.ug[c.y * N + c.x];
     if (gu0 && !(diffOf(g, pid).nogd2)){ // weak lone garrison (rider/archer/...) with a stronger force next to the city: step it aside and put a defender in
-      if (gu0.owner !== pid || U(gu0).sk.has('naval') || UNITS[gu0.type].d >= 3 || !canMoveG(g, gu0)) continue;
+      const woundedG = (diffOf(g, pid) || {}).rgarr && gu0.hp < 0.5 * maxHp(gu0);
+      if (gu0.owner !== pid || U(gu0).sk.has('naval') || (UNITS[gu0.type].d >= 3 && !woundedG) || !canMoveG(g, gu0)) continue;
       const near = foes.filter(e => cheb(e.x, e.y, c.x, c.y) <= UNITS[e.type].m + 1);
       if (!near.length) continue;
       const thr = near.reduce((s2, e) => s2 + UNITS[e.type].a * e.hp, 0), str = UNITS[gu0.type].d * gu0.hp * 1.5;
-      if (thr < 1.3 * str) continue;
-      const tr2 = trainable(g, pid), want = ['defender', 'swordsman'].find(t => tr2.includes(t) && me.stars >= unitStarCost(g, pid, t)); if (!want) continue;
+      if (thr < 1.3 * str && !woundedG) continue;
+      const tr2 = trainable(g, pid), want = (woundedG ? ['giant', 'defender', 'swordsman', 'knight'] : ['defender', 'swordsman']).find(t => tr2.includes(t) && me.stars >= unitStarCost(g, pid, t)); if (!want) continue;
       const rs = reachable(g, gu0); let dest = null;
       for (const [dx, dy] of [[1,0],[-1,0],[0,1],[0,-1],[1,1],[-1,-1],[1,-1],[-1,1]]){ const x = c.x + dx, y = c.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; if (rs.has(y * N + x) && !g.ug[y * N + x]){ dest = [x, y]; break; } }
       if (!dest) continue;
@@ -3028,7 +3063,7 @@ function lunarisTurn(g, pid, ms){
   const svW = typeof NNW !== 'undefined' ? NNW : null;
   if (D.nnw) NNW = D.nnw;
   try {
-  const S = makeSearcher(root, Object.assign({ ms: ms || 3000, me: pid, seed: (Date.now() ^ (pid * 7919)) >>> 0 }, typeof LUN_OPT !== 'undefined' ? LUN_OPT : {}, D.lopt || {}));
+  const S = makeSearcher(root, Object.assign({ ms: ms || 3000, me: pid, seed: (NOW() ^ (pid * 7919)) >>> 0 }, typeof LUN_OPT !== 'undefined' ? LUN_OPT : {}, D.lopt || {}));
   while (!S.state.done) S.step();
   SME = pid;
   const b = S.state.best; rebuildGrid(g);
@@ -3169,8 +3204,8 @@ const TERR = {
        plansBase: 24, plansMax: 160, plansCap: 240, refBase: 400, look3: 30000, look4: 150000, nnMix: null, nnScale: null }
 };
 DIFFS.terranion = Object.assign({}, DIFFS.lunaris, { n: 'Terranion 1.2.1', ms: 120000, terr: 1, lunaris: 1, nnw: (typeof NNW_T !== 'undefined' ? NNW_T : undefined) });
-// Terranion 1.4: Jupiter 1.3.1's rules ported in (cloak-aware army, no monuments / scorch in cities we lose). Flags default ON here.
-DIFFS.terranion14 = Object.assign({}, DIFFS.terranion, { n: 'Terranion 1.4', rcloak: 1.5, rdefend: 1, rwound: 1, hroom: 1, rli: 1, rconv: 1, rbridge: 1, rpolar: 0, rpbank: 1, rpmooni: 1, rsuper: 0 });
+// Terranion 1.5 (= 1.4 + alloc: star spending steered toward per-turn category shares, G=6). Terranion 1.4: Jupiter 1.3.1's rules ported in (cloak-aware army, no monuments / scorch in cities we lose). Flags default ON here.
+DIFFS.terranion14 = Object.assign({}, DIFFS.terranion, { n: 'Terranion 1.5', alloc: {m0:0.35,m1:0.4,m2:0.004,lo:0.2,hi:0.7,tgt:0.15,G:6}, rcloak: 1.5, rdefend: 1, rwound: 1, hroom: 1, rli: 1, rconv: 1, rbridge: 1, rjelly: 0, rsled: 0, rsledT: 10, rdef1: 0, rdef1T: 18, rgarr: 0, rgrp: 0, rtail: 0, rres: 0, rresT: 6, rcons: 0, rconsT: 12, rinc: 0, rincT: 15, rexp: 0, rexpT: 12, rexpC: 4, rvn: 0, rdef2: 0, rpolar: 0, rpbank: 1, rpmooni: 1, rsuper: 0, rlvl: 0 });
 DIFFS.terranion.hide = 1; // the old 1.2.1 entry stays only as the base of 1.4; it is no longer offered in the picker
 // Terranion 1.1 evaluates with its own, larger value network (64-32 hidden) when one is bundled; Lunaris keeps its 32-16 net
 function terrNet(fn){ const n = DIFFS.terranion14.nnw; if (!n) return fn(); const sv = NNW; NNW = n; try { return fn(); } finally { NNW = sv; } }
@@ -3497,6 +3532,12 @@ function terrAdjust2(g, pid, ctx, opts){
         const thr = ctx.threat[c.y * N13 + c.x] > 0;
         if (thr && String(o.id).startsWith('mon:') && c.level < 5) o.s *= 0.05;
         if (thr && o.id === 'destroy' && has(g, pid, 'chivalry')) o.s += 0.8; } } }
+  // rdef2 (Terranion 1.4): fast raiders. A leapfrogged group (Hexapod 2+1 = 3, Doomux 3+1 = 4) reaches any city within move+3 in one turn,
+  // and the R13 block above never trains a defender. When a visible dash/sneak unit can reach one of our cities that way, defenders, swordsmen and knights get a boost.
+  { const D2 = diffOf(g, pid) || {}; if (D2.rdef2){ const N2 = g.N;
+      const fast = g.units.filter(e => e.owner !== pid && UNITS[e.type].a > 0 && (U(e).sk.has('dash') || U(e).sk.has('sneak')) && ctx.vis[e.y * N2 + e.x]);
+      const near = fast.length && g.cities.some(c => c.owner === pid && fast.some(e => cheb(e.x, e.y, c.x, c.y) <= UNITS[e.type].m + 3));
+      if (near) for (const o of opts) if (o.k === 'unit' && (o.ty === 'defender' || o.ty === 'swordsman' || o.ty === 'knight')) o.s *= (D2.rdef2 || 1.5); } }
   // R5: army floor per city (fog-proof; off unless D.rarmy)
   { const low5 = terrArmyLow(g, pid, diffOf(g, pid) || {}); if (low5) for (const o of opts){ if (o.k === 'unit') o.s *= 1.5; else if (o.k === 'tech' && !((diffOf(g, pid) || {}).rconf && ['diplomacy','mathematics','chivalry','freespirit'].includes(o.t))) o.s *= 0.6; } }
   // Zebasi philosophy rush: when nobody is in sight, climb → meditate → philosophy (−⅓ on every later tech, Lv5 cities for giants)
@@ -3504,6 +3545,9 @@ function terrAdjust2(g, pid, ctx, opts){
     const seen = g.units.some(u => u.owner !== pid && ctx.vis[u.y * N + u.x]);
     if (!seen && !threatened) for (const o of opts) if (o.k === 'tech'){ if (o.t === 'philosophy') o.s += W.philoTech; else if (o.t === 'meditation') o.s += W.philoMed; else if (o.t === 'climbing') o.s += W.philoClimb; }
   }
+  { const DC = diffOf(g, pid) || {}; // rcons: Zebasi takes Construction early (windmill = star income) before the philosophy/organization detour
+    if (DC.rcons && tr.id === 'zebasi' && !has(g, pid, 'construction') && g.turn <= (+DC.rconsT || 12)){
+      for (const o of opts) if (o.k === 'tech' && o.t === 'construction') o.s += +DC.rcons; } }
   if (cyOn(g, pid)) cyAdjust(g, pid, ctx, opts); // Cymanti economy (Terranion 1.2)
   terrRushAdjust(g, pid, ctx, opts); // rush defence (Terranion 1.2.1)
   if (!(diffOf(g, pid) || {}).nosea) terrSeaAdjust(g, pid, ctx, opts); // water maps (1.2.1)
@@ -3559,6 +3603,11 @@ aiSpend = function(g, pid, ctx){
     let opts; SPEND_CAP = {};
     try { _terrSpend(g, pid, ctx); } finally { opts = SPEND_CAP.opts || []; SPEND_CAP = outer; }
     terrAdjust(g, pid, ctx, opts); terrAdjust2(g, pid, ctx, opts);
+    { const _DA = diffOf(g, pid) || {}; if (_DA.alloc){ const A = _DA.alloc; let st = ALLOC_ST.get(g); if (!st){ st = {e:0,m:0,t:0}; ALLOC_ST.set(g, st); }
+      const myC = g.cities.filter(c => c.owner === pid), tot = (st.e + st.m + st.t) || 1;
+      const thr = myC.filter(c => ctx.threat[c.y * g.N + c.x] > 0).length / Math.max(1, myC.length);
+      const tm = Math.min(A.hi, Math.max(A.lo, A.m0 + A.m1 * thr + A.m2 * g.turn)), tg = {m: tm, t: A.tgt, e: 1 - tm - A.tgt}, sh = {e: st.e / tot, m: st.m / tot, t: st.t / tot};
+      for (const o of opts){ const cat = o.k === 'tile' ? 'e' : o.k === 'unit' ? 'm' : 't'; o.s *= Math.max(0.2, 1 + A.G * (tg[cat] - sh[cat])); if (A.eT && g.turn <= A.eT){ if (cat === 'm' && A.eu != null) o.s *= A.eu; if (cat === 'e' && A.eb != null) o.s *= A.eb; } } } }
     if (outer){ outer.opts = opts; return; }
     const aff = opts.filter(o => o.c <= p.stars); if (!aff.length) break;
     aff.sort((a, b) => b.s - a.s); const o = aff[0]; if (o.s < (TERR.cw || TERR.w).minScore) break;
@@ -3569,6 +3618,7 @@ aiSpend = function(g, pid, ctx){
     else if (o.k === 'tech') ok = research(g, pid, o.t);
     else if (o.k === 'unit') ok = !!train(g, g.cities[o.city], o.ty);
     if (!ok) break;
+    if ((diffOf(g, pid) || {}).alloc){ const st = ALLOC_ST.get(g); if (st) st[o.k === 'tile' ? 'e' : o.k === 'unit' ? 'm' : 't'] += o.c || 0; }
   }
 };
 
@@ -3614,6 +3664,11 @@ function terranionTurn(g, pid, ms){
   if (!g._planning) aiDiplomacy(g, pid);
   if (!g._planning) aiOpenUp(g, pid);
   if (!g._planning) rFogProbe(g, pid);
+  const _pins = []; // rgarr (Terranion 1.4): the only unit standing in a threatened capital / level-4+ city may fight from its tile but not leave (a Giant walked out to kill one Segment and a Centipede took the capital)
+  if (D.rgarr && !g._planning){ const vis0 = visibleFor(g, pid), N0 = g.N;
+    for (const c of g.cities){ if (c.owner !== pid || !(c.capital || c.level >= 4)) continue; const gu = g.ug[c.y * N0 + c.x]; if (!gu || gu.owner !== pid || U(gu).sk.has('naval') || UNITS[gu.type].a <= 0 || gu.hp < 0.6 * maxHp(gu)) continue; // a wounded garrison is not pinned: guardCities swaps it for a defender / swordsman / giant
+      const rr = (c.capital ? 3 : 2) + 2; // dash / double move included
+      if (g.units.some(e => e.owner !== pid && vis0[e.y * N0 + e.x] && visibleEnemy(g, e, pid) && canHit(g, pid, e.owner) && UNITS[e.type].a > 0 && !U(e).sk.has('noattack') && cheb(e.x, e.y, c.x, c.y) <= Math.max(rr, UNITS[e.type].m + 2))){ gu.pin = 1; _pins.push(gu); } } }
   const root = fastClone(g); root._planning = false; terrFog(g, root, pid, D); rebuildGrid(root);
   const svW = typeof NNW !== 'undefined' ? NNW : null, svOn = TERR.on, svCw = TERR.cw;
   TERR.cw = D.tw ? Object.assign({}, TERR.w, D.tw) : null;
@@ -3621,12 +3676,12 @@ function terranionTurn(g, pid, ms){
   TERR.on = true; const svS = Object.assign({}, SFW); if ((TERR.cw || TERR.w).sfw) Object.assign(SFW, (TERR.cw || TERR.w).sfw);
   if (terrRushThreat(g, pid)){ SFW.expo = Math.max(SFW.expo, 1.1); SFW.siege = Math.max(SFW.siege, 1.8); }
   try {
-    const S = makeSearcher(root, Object.assign({ ms, me: pid, seed: (Date.now() ^ (pid * 7919)) >>> 0 }, terrOptions(ms, g.N, TERR.cw || TERR.w), D.lopt || {}));
+    const S = makeSearcher(root, Object.assign({ ms, me: pid, seed: (NOW() ^ (pid * 7919)) >>> 0 }, terrOptions(ms, g.N, TERR.cw || TERR.w), D.lopt || {}));
     while (!S.state.done) S.step();
     SME = pid;
     rebuildGrid(g); terrApplyPlan(g, pid, S.state.best.plan);
     terrBreakNow(g, pid);
-  } finally { Object.assign(SFW, svS); TERR.on = svOn; TERR.cw = svCw; if (D.nnw) NNW = svW; }
+  } finally { for (const u of _pins) delete u.pin; Object.assign(SFW, svS); TERR.on = svOn; TERR.cw = svCw; if (D.nnw) NNW = svW; }
 }
 // fog of war (as in Lunaris 0.1): the search only knows the enemy units the player can see; lopt.fog === 0 turns it off
 function terrFog(g, root, pid, D){
@@ -4092,6 +4147,13 @@ aiContext = function(g, pid){
   const CW = JUP.cw || JUP.w;
   if (JUP.on && CW.vill && pid === SME && g.turn <= CW.villTurn && g.cities.filter(c => c.owner === pid).length <= CW.villCities)
     for (const gl of ctx.goals) if (gl.kind === 'village') gl.v += CW.vill;
+  { const DX = diffOf(g, pid); // rexp (Terranion 1.4): early expansion. Until turn rexpT with fewer than rexpC cities every known village is worth more, so units walk to villages instead of fighting
+    if (DX && DX.rexp && g.turn <= (DX.rexpT || 12) && g.cities.filter(c => c.owner === pid).length < (DX.rexpC || 4))
+      for (const gl of ctx.goals) if (gl.kind === 'village') gl.v += DX.rexp; }
+    // rvn (Terranion 1.4): cities come only from capturing villages (makeCity on a village), and the bot never chooses a site.
+    // A village within 4 tiles of our capital becomes the second city that shields it; give those villages extra value.
+    { const DX = diffOf(g, pid) || {}; if (DX.rvn){ const N3 = g.N; const cap = g.cities.find(c => c.owner === pid && c.capital);
+      if (cap) for (const gl of ctx.goals) if (gl.kind === 'village'){ const vx = gl.i % N3, vy = (gl.i / N3) | 0; if (cheb(vx, vy, cap.x, cap.y) <= 4) gl.v += DX.rvn; } } }
   return ctx;
 };
 const _jupEvalPlayer = evalPlayer;
@@ -4134,7 +4196,7 @@ function jupBegin(D, tid){
 }
 function jupEnd(sv){ JUP.on = sv.on; JUP.cw = sv.cw; JUP.mw = sv.mw; TERR.on = sv.ton; TERR.cw = sv.tcw; }
 function jupSearcher(root, pid, ms, D, seed){
-  const S = makeSearcher(root, Object.assign({ ms, me: pid, seed: seed != null ? seed : (Date.now() ^ (pid * 7919)) >>> 0 }, terrOptions(ms, root.N, TERR.cw || TERR.w), D.lopt || {}));
+  const S = makeSearcher(root, Object.assign({ ms, me: pid, seed: seed != null ? seed : (NOW() ^ (pid * 7919)) >>> 0 }, terrOptions(ms, root.N, TERR.cw || TERR.w), D.lopt || {}));
   // long searches: keep the candidate log and the evaluated-position set bounded
   const st = S.state, push = st.log.push.bind(st.log);
   st.log.push = function(r){ if (st.log.length >= JUP.logCap) st.log.splice(0, st.log.length - JUP.logCap / 2); return push(r); };
@@ -4159,7 +4221,7 @@ function jupiterTurn(g, pid, ms){
     SME = pid;
     rebuildGrid(g); terrApplyPlan(g, pid, S.state.best.plan);
     terrBreakNow(g, pid);
-  } finally { Object.assign(SFW, svS); jupEnd(sv); if (D.nnw) NNW = svW; }
+  } finally { for (const u of _pins) delete u.pin; Object.assign(SFW, svS); jupEnd(sv); if (D.nnw) NNW = svW; }
 }
 const _jupLunaris = lunarisTurn;
 lunarisTurn = function(g, pid, ms){ return diffOf(g, pid).jup ? jupiterTurn(g, pid, ms) : _jupLunaris(g, pid, ms); };
@@ -5855,7 +5917,7 @@ function draw0(){
     if(!exp[i]){ if(FOGA<1){ // fog opacity: show the terrain through the clouds (display only; terrain type only, no units, buildings or resources)
         const fc = t.t===T_WATER ? '#3fa0d4' : t.t===T_OCEAN ? '#22609e' : t.t===T_MTN ? '#8a8f97' : t.t===T_FOREST ? '#3f7d45' : TRIBES[t.reg].ground;
         diamond(p.x,p.y,w,h); cx.fillStyle=fc; cx.globalAlpha=1-FOGA; cx.fill(); cx.globalAlpha=1; }
-      drawCloud(p,w,i); if(FOGA<1 && (t.village||t.res||t.city>=0||g.ug[i])) villagesInFog.push({p,t,i}); if(t.light) lightsInFog.push(p); if(t.ruin && spOf(g,V())==='el'){ cx.font=`${Math.max(9,h*.6)}px system-ui,"Apple Color Emoji",sans-serif`; cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText('🌈',p.x,p.y-h*.2); } continue; }
+      drawCloud(p,w,i); if(FOGA<1 && (t.village||t.ruin||t.res||t.city>=0||g.ug[i])) villagesInFog.push({p,t,i}); if(t.light) lightsInFog.push(p); if(t.ruin && spOf(g,V())==='el'){ cx.font=`${Math.max(9,h*.6)}px system-ui,"Apple Color Emoji",sans-serif`; cx.textAlign='center'; cx.textBaseline='middle'; cx.fillText('🌈',p.x,p.y-h*.2); } continue; }
     let col;
     if(t.t===T_WATER||t.t===T_OCEAN) col = t.ice ? '#eef8fd' : (t.t===T_WATER?'#3fa0d4':'#22609e');
     else { col=TRIBES[t.reg].ground; if(t.fill) col=shade(col,-0.18); if(t.ice) col='#f4fafd'; }
@@ -5924,6 +5986,7 @@ function draw0(){
   }
   if(villagesInFog.length){ cx.textAlign='center'; cx.textBaseline='middle'; cx.globalAlpha=Math.min(1,1.2-FOGA); const fz=Math.max(10,h*.62);
     for(const {p,t} of villagesInFog){ if(t.village){ cx.font=`${fz*1.15}px system-ui,"Apple Color Emoji",sans-serif`; cx.fillText('🛖',p.x,p.y-h*.25); }
+      else if(t.ruin){ cx.font=`${fz*1.15}px system-ui,"Apple Color Emoji",sans-serif`; cx.fillText('🏛️',p.x,p.y-h*.2); } // ruins seen through the fog, like villages
       else if(t.res && resVisible(g,V(),t)){ cx.font=`${fz}px system-ui,"Apple Color Emoji",sans-serif`; cx.fillText(resIcon(t),p.x+w*.14,p.y-h*.05); } } // resources follow the usual tech visibility
     for(const {p,t,i} of villagesInFog){ if(t.city>=0){ const c=g.cities[t.city]; if(c) drawCity(c,p,w,h); } // cities and units seen through the fog (display only)
       const u=g.ug[i]; if(u) drawUnit(u,p,w,h); }
@@ -6093,7 +6156,7 @@ function ruinResult(m){
   openModal(`<h2>🏛️ Ruins explored</h2><div style="display:flex;gap:14px;align-items:center;margin:10px 0 16px"><span style="font-size:42px">${icon}</span><div><div style="font-family:var(--display);font-size:20px">${m}</div><div class="sub" style="color:var(--mute);font-size:13px;margin-top:4px">${sub}</div></div></div><div class="row"><button class="pri" id="rOk">OK</button></div>`);
   $('rOk').onclick=closeModal;
 }
-function refresh(){ panel(); draw(); }
+function refresh(){ if(g && !g.spectate && !ADVM && !RPV && g.cur===V() && g.players[V()] && !g.players[V()].ai) checkTasks(g,V()); /* a task finished by this action unlocks its monument at once (the same turn), not only at turn end */ panel(); draw(); }
 function renameCityModal(c,done){
   openModal(`<h2>City name</h2><input id="rnI" maxlength="24" value="${String(c.name||'').replace(/[&<>"]/g,s=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[s]))}" style="width:100%;font:inherit;font-size:16px;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px" aria-label="City name"><div class="row" style="margin-top:12px"><button class="pri" id="rnOk">Rename</button><button id="rnNo">Cancel</button></div>`);
   const ok=()=>{ const v=$('rnI').value.trim(); if(v) c.name=v; closeModal(); if(done) done(); else { save(); refresh(); } };
@@ -6248,8 +6311,8 @@ function terrBotTurn(g,pid,cb){
   const ms=terrMsFor(g,pid), doRv=!g.noReview&&!g.slowReview&&typeof reviewStart==='function';
   try{ aiDiplomacy(g,pid); aiOpenUp(g,pid); }catch(e){}
   if(doRv) reviewStart(g,pid);
-  const t0=Date.now(), nm=TRIBES[g.players[pid].tribe].n, eb=$('endBtn');
-  const tick=setInterval(()=>{ eb.textContent=`${nm} Terranion is thinking ${Math.round((Date.now()-t0)/1000)}/${Math.round(ms/1000)}s`; },500);
+  const t0=NOW(), nm=TRIBES[g.players[pid].tribe].n, eb=$('endBtn');
+  const tick=setInterval(()=>{ eb.textContent=`${nm} Terranion is thinking ${Math.round((NOW()-t0)/1000)}/${Math.round(ms/1000)}s`; },500);
   let fired=false; const myId=GAMEID;
   const fin=plan=>{ if(fired) return; fired=true; clearInterval(tick); if(myId!==GAMEID){ try{ w&&w.terminate(); }catch(e){} return; }
     try{ rebuildGrid(g); if(plan) terrApplyPlan(g,pid,plan); else terranionTurn(g,pid,Math.min(ms,4000)); }catch(e){ console.error(e); try{ aiTurnCore(g,pid); }catch(e2){} }
@@ -6343,8 +6406,8 @@ function checkPending(){
 
 // ---------- modals ----------
 let modalLock=false;
-function openModal(html,lock){ const x=(!lock && g)?'<button class="mx" id="mX" aria-label="Close (back)">✕</button>':''; $('sheet').innerHTML=x+html; $('modal').hidden=false; $('sheet').scrollTop=0; modalLock=!!lock; if(x) $('mX').onclick=closeModal; }
-function closeModal(){ $('modal').hidden=true; modalLock=false; }
+function openModal(html,lock){ const x=(!lock && g)?'<button class="mx" id="mX" aria-label="Close (back)">✕</button>':''; $('sheet').innerHTML=x+html; $('modal').hidden=false; { const rb=document.getElementById('rvBar'); if(rb) rb.style.display='none'; } /* replay bar steps aside while a panel (ranking, log, ...) is open */ $('sheet').scrollTop=0; modalLock=!!lock; if(x) $('mX').onclick=closeModal; }
+function closeModal(){ $('modal').hidden=true; modalLock=false; { const rb=document.getElementById('rvBar'); if(rb) rb.style.display=''; } }
 $('modal').addEventListener('click',e=>{ if(e.target===$('modal') && !modalLock && g) closeModal(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape' && !$('modal').hidden && !modalLock && g) closeModal(); });
 let toastT=0;
@@ -6385,7 +6448,7 @@ $('bLog').onclick=()=>{ if(!g) return;
   $('lgRv').onclick=reviewModal; $('lgDip').onclick=dipModal; $('lgTask').onclick=taskModal; };
 function dipModal(){
   const me=V(), st={war:'War',neutral:'Neutral',peace:'Peace'};
-  const cards=g.players.filter(p=>p.id!==me&&p.alive).map(p=>{
+  const cards=g.players.filter(p=>p.id!==me&&p.alive&&knowsTribe(g,me,p.id)).map(p=>{
     const m=mood(g,p.id,me), lab=moodLabel(m.v), s=dsym(g,me,p.id), e1=ddir(g,me,p.id).emb, e2=ddir(g,p.id,me).emb;
     const facts=m.parts.filter(q=>q[0]!=='base').sort((a,b)=>Math.abs(b[1])-Math.abs(a[1])).slice(0,4).map(q=>`<span class="tag" style="color:${q[1]>0?'var(--good)':'var(--bad)'}">${q[0]} ${q[1]>0?'+':''}${Math.round(q[1])}</span>`).join(' ');
     const canEmb=embassyTargets(g,me).includes(p.id), cost=embassyCost(g,me);
@@ -6394,7 +6457,7 @@ function dipModal(){
       <div class="sub">${facts||'No particular impression'}${e1?' · you have an embassy there':''}${e2?' · they have an embassy with you':''}${grace?' · treaty just broken, cannot attack this turn':''}</div>
       <div class="row" style="margin:6px 0 0">${s.state==='peace'?`<button data-brk="${p.id}" class="warn">Break peace treaty</button>`:`<button data-pc="${p.id}" ${has(g,me,'strategy')&&g.cur===V()?'':'disabled'}>Propose peace${has(g,me,'strategy')?'':' (needs Strategy)'}</button>`}
       ${has(g,me,'diplomacy')?`<button data-emb="${p.id}" ${canEmb&&g.players[me].stars>=cost&&g.cur===V()?'':'disabled'}>Embassy ★${cost}</button>`:''}</div></div>`; }).join('');
-  openModal(`<h2>Diplomacy</h2><p class="lead">Relations are how a bot sees you. The worse they are, the more aggressive it is, and a bot only accepts peace at 'Good' or better. Embassies give each side +2★/turn (+4★ during peace) and are destroyed if you attack.</p>${cards||'<span class="sub">No opponents left.</span>'}<div class="row" style="margin-top:12px"><button id="dpClose">Close</button></div>`);
+  openModal(`<h2>Diplomacy</h2><p class="lead">Relations are how a bot sees you. The worse they are, the more aggressive it is, and a bot only accepts peace at 'Good' or better. Embassies give each side +2★/turn (+4★ during peace) and are destroyed if you attack.</p>${cards||'<span class="sub">You have not met any tribe yet. Bring a unit or city of another tribe into view to open diplomacy.</span>'}<div class="row" style="margin-top:12px"><button id="dpClose">Close</button></div>`);
   $('sheet').querySelectorAll('[data-pc]').forEach(b=>b.onclick=()=>{ const tid=+b.dataset.pc, r=proposePeace(g,V(),tid); toast(r.ok?'Peace treaty signed!':'Refused: '+r.why,2600); save(); refresh(); dipModal(); });
   $('sheet').querySelectorAll('[data-brk]').forEach(b=>b.onclick=()=>{ if(b.dataset.armed){ breakPeace(g,V(),+b.dataset.brk); toast('You broke the peace treaty. Your units stop this turn and units inside their territory are disbanded.',3500); save(); refresh(); dipModal(); } else { b.dataset.armed=1; b.textContent='Really break it (permanent trust loss)'; } });
   $('sheet').querySelectorAll('[data-emb]').forEach(b=>b.onclick=()=>{ if(buildEmbassy(g,V(),+b.dataset.emb)){ toast('Build embassy'); save(); refresh(); dipModal(); } });
@@ -6589,22 +6652,24 @@ function snapHist(kind){ try{ if(!g||(typeof ADVM!=='undefined'&&ADVM)) return;
     e.s='VP1z:'+btoa(bin); }).catch(()=>{ e.s=null; });
 }catch(err){} }
 // export works in a plain browser too (normal file download); inside Claude it still uses the downloads capability
-function saveText(str,name,full,fullName){ // phones inside the Claude app often cannot download: show the save as selectable text with a copy button
-  try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([str],{type:'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); }catch(e){}
+function dlFile(str,name){ try{ const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([str],{type:'text/plain'})); a.download=name; document.body.appendChild(a); a.click(); setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); return true; }catch(e){ return false; } }
+function saveText(light,lightName,full,fullName){ // full save (with per-turn history) is downloaded as a file; this dialog is the fallback for apps that cannot download
+  dlFile(full,fullName);
   const o=document.createElement('div'); o.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.72);display:flex;align-items:center;justify-content:center;padding:14px';
-  o.innerHTML='<div style="background:var(--panel,#162030);color:var(--fg,#eee);border:1px solid var(--line,#345);border-radius:12px;padding:12px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:600">Compact save ('+name+') · '+str.length+'chars</div><div style="font-size:13px;opacity:.85">If saving to a file does not work, press <b>Copy</b> and paste it as-is into a chat. Everything from the leading VP1z: to the end is needed.<br><b>If you need the per-turn history (economy curve analysis, rewinding), press Full (with history) first, then copy.</b> This text is a light save without the history.</div><textarea readonly style="height:38vh;font:11px monospace;background:#0b1220;color:#9fb;border:1px solid #345;border-radius:8px;padding:6px"></textarea><div style="display:flex;gap:8px"><button id="svCopy" class="pri" style="flex:1;padding:10px">Copy</button><button id="svFull" style="flex:1;padding:10px">Full (with history)</button><button id="svClose" style="flex:1;padding:10px">Close</button></div></div>';
-  document.body.appendChild(o); const ta=o.querySelector('textarea'); ta.value=str;
+  o.innerHTML='<div style="background:var(--panel,#162030);color:var(--fg,#eee);border:1px solid var(--line,#345);border-radius:12px;padding:12px;width:100%;max-width:560px;display:flex;flex-direction:column;gap:8px"><div style="font-weight:600" id="svTitle"></div><div style="font-size:13px;opacity:.85">Full save (with per-turn history, <b>'+fullName+'</b>) was downloaded as a file. If you cannot find it, press <b>Download full file again</b>. If that does not work, <b>copy</b> the text below and paste it into the chat (all of it, starting from the leading VP1z:). If pasting is too long, use the light save (without history).</div><textarea readonly style="height:34vh;font:11px monospace;background:#0b1220;color:#9fb;border:1px solid #345;border-radius:8px;padding:6px"></textarea><div style="display:flex;gap:8px;flex-wrap:wrap"><button id="svCopy" class="pri" style="flex:1;padding:10px;min-width:30%">Copy</button><button id="svDl" style="flex:1;padding:10px;min-width:30%">Download full file again</button><button id="svMode" style="flex:1;padding:10px;min-width:30%">View light save</button><button id="svClose" style="flex:1;padding:10px;min-width:30%">Close</button></div></div>';
+  document.body.appendChild(o); const ta=o.querySelector('textarea'), tt=o.querySelector('#svTitle'), mb=o.querySelector('#svMode'); let isFull=true;
+  const show=()=>{ ta.value=isFull?full:light; tt.textContent=(isFull?'Full save (with history) · ':'Light save (without history) · ')+ta.value.length+' chars'; mb.textContent=isFull?'View light save':'View full save'; }; show();
+  mb.onclick=()=>{ isFull=!isFull; show(); };
   o.querySelector('#svClose').onclick=()=>o.remove();
-  const fb=o.querySelector('#svFull'); if(!full) fb.remove(); else fb.onclick=()=>{ ta.value=full; fb.remove(); toast('Full save '+full.length+'chars (may be long to paste)',2600); };
+  o.querySelector('#svDl').onclick=()=>{ const ok=dlFile(isFull?full:light,isFull?fullName:lightName); toast(ok?'Downloaded as a file':'File saving is blocked in this app — use Copy',2400); };
   o.querySelector('#svCopy').onclick=async()=>{ let ok=false; try{ await navigator.clipboard.writeText(ta.value); ok=true; }catch(e){} if(!ok){ ta.focus(); ta.select(); try{ ok=document.execCommand('copy'); }catch(e){} } toast(ok?'Copied — paste it into the chat':'Long-press the box, select all and copy',2600); };
 }
 async function exportGame(){
   try{ const str=await encodeSave(g), t=TRIBES[g.players[V()].tribe].n.replace(/[^\w-]/g,''), name=`polytopia_${t||'save'}_${g.N}x${g.N}_T${g.turn-1}.txt`;
     let dl=null; try{ dl=window.claude&&claude.use?await claude.use('downloads'):null; }catch(e){}
     if(dl){ try{ await dl.save({filename:name,data:str}); return; }catch(e){ if(e&&(e.code==='declined'||e.code==='cancelled')) return; } }
-    if(window.__dlOK===false){ saveText(await encodeSave(g,true),name.replace('.txt','_light.txt'),str,name); return; } // __dlOK was never set anywhere, so a normal browser always got the light save; only a page that knows downloads fail gets the copy dialog
-    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([str],{type:'text/plain'})); a.download=name; document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); },1500); toast('Record saved to a file',2200);
+    // always the FULL save (with hist) as a file; the dialog offers copy / re-download / light version when the app swallows downloads
+    saveText(await encodeSave(g,true),name.replace('.txt','_light.txt'),str,name);
   }catch(e){ if(!(e&&(e.code==='declined'||e.code==='cancelled'))) toast('Export failed',2500); } }
 async function encodeSave(o,light){
   const json=JSON.stringify(o,(k,v)=>(k==='ug'||k==='vis'||(light&&k==='hist'))?undefined:v); // light: no per-turn history (much shorter, enough to continue or analyze the current position)
@@ -6623,7 +6688,7 @@ async function decodeSave(str){
   const o=JSON.parse(json); if(!o||!o.N||!Array.isArray(o.tiles)||!Array.isArray(o.players)) throw new Error('Not a save format');
   rebuildGrid(o); updateVision(o); return o;
 }
-function metaOf(o){ return {tribe:o.players[0].tribe,N:o.N,turn:o.turn,map:o.mapType||'',bots:o.players.length-1,over:o.over||null,savedAt:Date.now()}; }
+function metaOf(o){ return {tribe:o.players[0].tribe,N:o.N,turn:o.turn,map:o.mapType||'',bots:o.players.length-1,over:o.over||null,savedAt:NOW()}; }
 async function slotMetas(){
   const c=await cloud(), out=[];
   for(let k=1;k<=SLOTS;k++){
@@ -6668,7 +6733,7 @@ async function saveModal(back){
   const rows=info.metas.map((m,i)=>{ const k=i+1; return `<div class="slot"><div class="sl"><b>Slot ${k}</b><div class="sm">${metaLine(m)}</div></div><div class="sb">
     ${g?`<button data-sv="${k}" class="${m?'':'pri'}">${m?'Overwrite':'Save'}</button>`:''}
     ${m?`<button data-ld="${k}">Load</button><button data-dl="${k}" class="${armedDel===k?'warn':''}">${armedDel===k?'Really delete':'Delete'}</button>`:''}</div></div>`; }).join('');
-  const autoRow=auto?`<div class="slot"><div class="sl"><b>Autosave</b><div class="sm">${metaLine({...metaOf(auto),savedAt:Date.now()}).replace(/<br>.*$/,'')}<br><span style="color:var(--mute)">As of the last end of turn</span></div></div><div class="sb"><button data-ld="auto">Load</button></div></div>`:'';
+  const autoRow=auto?`<div class="slot"><div class="sl"><b>Autosave</b><div class="sm">${metaLine({...metaOf(auto),savedAt:NOW()}).replace(/<br>.*$/,'')}<br><span style="color:var(--mute)">As of the last end of turn</span></div></div><div class="sb"><button data-ld="auto">Load</button></div></div>`:'';
   openModal(`<h2>Save / Load</h2>
     <p class="lead">${info.cloud?'Saved to your account, so you can load it when you open this page on another device.':'Saved in this browser. To move it to another device, export it to a file.'}</p>
     <div class="slots">${rows}${autoRow}</div>
@@ -6817,7 +6882,7 @@ function advVis(){ rebuildGrid(g); // what my own cities and units can see is ne
 const ADVH = [], ADV_BAK = 'vpoly-adv-bak'; let advBakT = 0, advNoHist = false;
 function advSave(){ try { const str = JSON.stringify({ spec: gameToSpec(g), ghosts: ADVS.ghosts, oppBonus: ADVS.oppBonus, ms: ADVS.ms, useGhosts: ADVS.useGhosts, engine: ADVS.engine, scores: ADVS.scores, mapType: ADVS.mapType }); localStorage.setItem(ADV_SAVE, str);
     if (!advNoHist && ADVH[ADVH.length - 1] !== str){ ADVH.push(str); if (ADVH.length > 60) ADVH.shift(); }
-    const now = Date.now(); if (now - advBakT > 45000){ advBakT = now; let a = []; try { a = JSON.parse(localStorage.getItem(ADV_BAK) || '[]'); } catch (e) {} if (!a.length || a[a.length - 1].s !== str){ a.push({ t: now, turn: g.turn, s: str }); while (a.length > 6) a.shift(); try { localStorage.setItem(ADV_BAK, JSON.stringify(a)); } catch (e) { try { localStorage.setItem(ADV_BAK, JSON.stringify(a.slice(-2))); } catch (e2) {} } } }
+    const now = NOW(); if (now - advBakT > 45000){ advBakT = now; let a = []; try { a = JSON.parse(localStorage.getItem(ADV_BAK) || '[]'); } catch (e) {} if (!a.length || a[a.length - 1].s !== str){ a.push({ t: now, turn: g.turn, s: str }); while (a.length > 6) a.shift(); try { localStorage.setItem(ADV_BAK, JSON.stringify(a)); } catch (e) { try { localStorage.setItem(ADV_BAK, JSON.stringify(a.slice(-2))); } catch (e2) {} } } }
   } catch (e) {} }
 function advApplyStr(str){ advNoHist = true; try { advRestore(JSON.parse(str)); advVis(); ADVS.plan = null; advSave(); } finally { advNoHist = false; } sel = null; refresh(); }
 function advUndo(){ if (ADVH.length < 2){ toast('Nothing to undo'); return; } ADVH.pop(); advApplyStr(ADVH[ADVH.length - 1]); toast('Undone (history left: ' + (ADVH.length - 1) + ')'); }
@@ -6955,7 +7020,7 @@ function advExportModal(){
 }
 function advQuickCopy(){ const js = JSON.stringify({ spec: gameToSpec(g), ghosts: ADVS.ghosts });
   const fb = () => advExportModal();
-  try { navigator.clipboard.writeText(js).then(() => { advBakCopied = Date.now(); toast('JSON copied. Paste it somewhere safe, such as a notepad'); }, fb); } catch (e) { fb(); } }
+  try { navigator.clipboard.writeText(js).then(() => { advBakCopied = NOW(); toast('JSON copied. Paste it somewhere safe, such as a notepad'); }, fb); } catch (e) { fb(); } }
 let advBakCopied = 0, advStoreOk = true;
 function advProbe(){ try { localStorage.setItem('vpoly-probe', '1'); advStoreOk = localStorage.getItem('vpoly-probe') === '1'; localStorage.removeItem('vpoly-probe'); } catch (e) { advStoreOk = false; }
   if (!advStoreOk) setTimeout(() => toast('⚠ Autosave does not work in this environment. The board disappears on refresh, so press 📋 Copy backup often', 6000), 800); }
@@ -7260,15 +7325,15 @@ onmessage = e => { const d = e.data;
     const g0 = JSON.parse(d.gs); g0.log = []; rebuildGrid(g0); const pid = d.pid, D = diffOf(g0, pid);
     if (D.nnw) NNW = D.nnw; TERR.on = true;
     const root = fastClone(g0); root._planning = false; terrFog(g0, root, pid, D); rebuildGrid(root);
-    const S = makeSearcher(root, Object.assign({ ms: d.ms, me: pid, seed: (Date.now() ^ (pid * 7919)) >>> 0 }, terrOptions(d.ms, root.N), D.lopt || {}));
-    let last = 0; while (!S.state.done){ S.step(); if (Date.now() - last > 400){ last = Date.now(); postMessage({ p: 1, t: Date.now() - S.t0, n: S.state.evaluated.size }); } }
+    const S = makeSearcher(root, Object.assign({ ms: d.ms, me: pid, seed: (NOW() ^ (pid * 7919)) >>> 0 }, terrOptions(d.ms, root.N), D.lopt || {}));
+    let last = 0; while (!S.state.done){ S.step(); if (NOW() - last > 400){ last = NOW(); postMessage({ p: 1, t: NOW() - S.t0, n: S.state.evaluated.size }); } }
     postMessage({ done: 1, plan: S.state.best.plan }); return; }
   const { spec, ms, engine } = d; installRecorder();
   const root = prepGame(spec); rebuildGrid(root);
   let opt = { ms }; if (engine === 'terranion'){ root._terrMe = 0; TERR.on = true; if (terrRushThreat(root, 0)){ SFW.expo = Math.max(SFW.expo, 1.1); SFW.siege = Math.max(SFW.siege, 1.8); } opt = Object.assign(terrOptions(ms, root.N), opt); if (DIFFS.terranion14.nnw) NNW = DIFFS.terranion14.nnw; }
   opt.oppP = advOppBeam(ms); const S = makeSearcher(root, opt); let last = 0;
-  while (!S.state.done){ S.step(); if (Date.now() - last > 200){ last = Date.now();
-    postMessage({ p: 1, it: S.state.it, rv: S.state.best.rv, base: S.state.base.rv, tag: S.state.best.tag, n: S.state.evaluated.size, t: Date.now() - S.t0 }); } }
+  while (!S.state.done){ S.step(); if (NOW() - last > 200){ last = NOW();
+    postMessage({ p: 1, it: S.state.it, rv: S.state.best.rv, base: S.state.base.rv, tag: S.state.best.tag, n: S.state.evaluated.size, t: NOW() - S.t0 }); } }
   postMessage({ done: 1, r: S.finish() }); };`;
   return advWorkerSrc;
 }
@@ -7296,8 +7361,8 @@ function advAnalyze(){
     let opt = { ms, oppP: advOppBeam(ms) }; const isT = ADVS.engine === 'terranion'; if (isT){ root._terrMe = 0; opt = Object.assign(terrOptions(ms, root.N), opt); }
     const S = isT ? terrNet(() => makeSearcher(root, opt)) : makeSearcher(root, opt); let stop = false;
     ADVS.running = { stop: () => { stop = true; ADVS.running = null; refresh(); } };
-    const tick = () => { if (stop) return; const t = Date.now(), svOn = TERR.on; TERR.on = ADVS.engine === 'terranion'; try { const stepAll = () => { while (!S.state.done && Date.now() - t < 120) S.step(); }; if (isT) terrNet(stepAll); else stepAll(); } finally { TERR.on = svOn; }
-      Object.assign(prog, { it: S.state.it, n: S.state.evaluated.size, t: Date.now() - S.t0, rv: S.state.best.rv, base: S.state.base.rv }); show();
+    const tick = () => { if (stop) return; const t = NOW(), svOn = TERR.on; TERR.on = ADVS.engine === 'terranion'; try { const stepAll = () => { while (!S.state.done && NOW() - t < 120) S.step(); }; if (isT) terrNet(stepAll); else stepAll(); } finally { TERR.on = svOn; }
+      Object.assign(prog, { it: S.state.it, n: S.state.evaluated.size, t: NOW() - S.t0, rv: S.state.best.rv, base: S.state.base.rv }); show();
       if (S.state.done){ rebuildGrid(g); const svOn = TERR.on; TERR.on = ADVS.engine === 'terranion'; let r; try { r = isT ? terrNet(() => S.finish()) : S.finish(); } finally { TERR.on = svOn; } done(r); } else setTimeout(tick, 0); };
     setTimeout(tick, 0);
   }
