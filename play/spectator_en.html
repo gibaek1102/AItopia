@@ -4024,6 +4024,66 @@ function advRisk(g2){
   return out;
 }
 if (typeof module !== 'undefined') Object.assign(module.exports, { terrVisibleScore, terrStartNominal, terrStartDeficit, terrStartCandidates, terrCalib, terrProject });
+function NOW(){ return Date.now(); } // production clock (the full build uses a deterministic clock for tests)
+// ===== LUNARIS 1.1 / LUNARIS-HEAVY =====
+// Lunaris's own search and candidate generator (fog-honest, 32-16 value net, no Terranion evaluation extras), with the
+// Terranion rule layer switched on for the plans it generates (D.terr drives the spend / opening / tribe rules inside aiTurnCore).
+// D.l11 marks the bot: the page must not send it down the Terranion path, and lunarisTurn below handles it.
+// l11.heavy: the search grows with the thinking time exactly like Terranion's (more candidate plans, wider beam levels, look 3/4, fill).
+function lunPlanFor(g, pid, ms){
+  const D = diffOf(g, pid), L = D.l11 === true ? {} : (D.l11 || {});
+  const root = fastClone(g); root._planning = false; terrFog(g, root, pid, D);
+  if (L.fogc !== 0){ // enemy cities the bot cannot see right now: the search must not know their current level or population (assume a fresh village)
+    const vis = visibleFor(g, pid), N = root.N;
+    const ex = g.players[pid].explored, drop = new Set();
+    for (const c of root.cities){ if (c.owner === pid || vis[c.y * N + c.x]) continue;
+      if (L.fogc === 2 && !ex[c.y * N + c.x]){ // never seen, and no explored tile of its territory shows a border nearby: the bot cannot know the city exists
+        let b = false; for (let dy = -2; dy <= 2 && !b; dy++) for (let dx = -2; dx <= 2; dx++){ const x = c.x + dx, y = c.y + dy; if (x < 0 || y < 0 || x >= N || y >= N) continue; const i = y * N + x; if (ex[i] && root.tiles[i].owner === c.owner){ b = true; break; } }
+        if (!b){ drop.add(c.id); continue; } }
+      c.level = 1; c.pop = 1; }
+    if (drop.size){ const mp = new Map(), keep = []; for (const c of root.cities){ if (drop.has(c.id)) continue; mp.set(c.id, keep.length); keep.push(c); }
+      for (const t of root.tiles){ if (t.city >= 0) t.city = mp.has(t.city) ? mp.get(t.city) : -1; if (t.cityOf != null && t.cityOf >= 0) t.cityOf = mp.has(t.cityOf) ? mp.get(t.cityOf) : -1; }
+      keep.forEach((c, k) => { c.id = k; }); root.cities = keep; }
+  }
+  rebuildGrid(root);
+  if (L.tm){ // time management: same average budget, but more on turns where an enemy is close, less when none is in sight
+    const en = root.units.filter(u => u.owner !== pid);
+    let f = L.tm.quiet;
+    if (en.length){
+      const myC = root.cities.filter(c => c.owner === pid), myU = root.units.filter(u => u.owner === pid);
+      const hot = en.some(e => myC.some(c => Math.max(Math.abs(e.x - c.x), Math.abs(e.y - c.y)) <= (L.tm.rc || 4)) || myU.some(u => Math.max(Math.abs(e.x - u.x), Math.abs(e.y - u.y)) <= (L.tm.ru || 2)));
+      f = hot ? L.tm.hot : L.tm.near;
+    }
+    ms = ms * f;
+  }
+  const svW = typeof NNW !== 'undefined' ? NNW : null;
+  if (D.nnw) NNW = D.nnw;
+  try {
+    const hv = L.heavy ? terrOptions(ms, root.N, null) : null;
+    const S = makeSearcher(root, Object.assign({ ms: ms || 3000, me: pid, seed: (NOW() ^ (pid * 7919)) >>> 0 }, typeof LUN_OPT !== 'undefined' ? LUN_OPT : {}, hv || {}, D.lopt || {}));
+    while (!S.state.done) S.step();
+    SME = pid;
+    return S.state.best.plan;
+  } finally { if (D.nnw) NNW = svW; }
+}
+function lunApplyPlan(g, pid, plan){
+  SME = pid; rebuildGrid(g);
+  if (plan.bot){ withRng(plan.bot.seed, plan.bot.params, () => aiTurnCore(g, pid)); return; }
+  const ctx = aiContext(g, pid); for (const mm of plan.macros) applyMacro(g, pid, mm, ctx); for (const o2 of plan.econ || []) execOpt(g, pid, o2);
+}
+const __lt0 = lunarisTurn;
+lunarisTurn = function(g, pid, ms){
+  const D = diffOf(g, pid);
+  if (!D.l11) return __lt0(g, pid, ms);
+  if (!g._planning) aiDiplomacy(g, pid);
+  if (!g._planning) aiOpenUp(g, pid);
+  if (!g._planning) rFogProbe(g, pid);
+  lunApplyPlan(g, pid, lunPlanFor(g, pid, ms || D.ms));
+};
+DIFFS.lunaris11 = Object.assign({}, DIFFS.lunaris, { n: 'Lunaris 1.1', terr: 1, l11: { exec: 'plain' } });
+DIFFS.lunarisheavy = Object.assign({}, DIFFS.lunaris, { n: 'Lunaris-Heavy', terr: 1, ms: 10000, l11: { exec: 'plain', heavy: 1 } });
+BOT_ELO.lunaris11 = BOT_ELO.lunaris; // not measured: same as Lunaris until measured
+BOT_ELO.lunarisheavy = BOT_ELO.lunaris;
 </script>
 <script id="advjup">// ===== JUPITER v2 — standard core =====
 // One copy of everything shared. Tribe modules (jmod_<tribe>.js) call jupRegister(); they never wrap engine functions themselves.
@@ -6292,7 +6352,7 @@ function aiLoop(done){
         setTimeout(step,0); };
       if(diffOf(g,who).sol){ solBotTurn(g,who,after); return; }
       if(g.spectate && typeof Worker!=='undefined' && !SPEC.noWorker){ specBotTurn(g,who,watch,after); return; }
-      if(diffOf(g,who).terr){ terrBotTurn(g,who,after); return; }
+      if(diffOf(g,who).terr && (!diffOf(g,who).l11 || diffOf(g,who).l11.heavy)){ terrBotTurn(g,who,after); return; }
       aiTurnReviewed(g,g.cur); after(); return;
     }
     updateVision(g); busy=false; replaySkip=false; $('endBtn').textContent='End turn';
@@ -6308,14 +6368,14 @@ function aiLoop(done){
 const TF=[1,0.9,1.1,0.85,1.15,0.95,1.05,0.8];
 function terrMsFor(g,pid){ return Math.max(1000,Math.round((g.terrMs||DIFFS.terranion.ms)*TF[pid%TF.length])); }
 function terrBotTurn(g,pid,cb){
-  const ms=terrMsFor(g,pid), doRv=!g.noReview&&!g.slowReview&&typeof reviewStart==='function';
+  const D0=diffOf(g,pid), ms=D0.l11?D0.ms:terrMsFor(g,pid), doRv=!g.noReview&&!g.slowReview&&typeof reviewStart==='function';
   try{ aiDiplomacy(g,pid); aiOpenUp(g,pid); }catch(e){}
   if(doRv) reviewStart(g,pid);
   const t0=NOW(), nm=TRIBES[g.players[pid].tribe].n, eb=$('endBtn');
-  const tick=setInterval(()=>{ eb.textContent=`${nm} Terranion is thinking ${Math.round((NOW()-t0)/1000)}/${Math.round(ms/1000)}s`; },500);
+  const tick=setInterval(()=>{ eb.textContent=`${nm} ${D0.l11?'Lunaris-Heavy':'Terranion'} is thinking ${Math.round((NOW()-t0)/1000)}/${Math.round(ms/1000)}s`; },500);
   let fired=false; const myId=GAMEID;
   const fin=plan=>{ if(fired) return; fired=true; clearInterval(tick); if(myId!==GAMEID){ try{ w&&w.terminate(); }catch(e){} return; }
-    try{ rebuildGrid(g); if(plan) terrApplyPlan(g,pid,plan); else terranionTurn(g,pid,Math.min(ms,4000)); }catch(e){ console.error(e); try{ aiTurnCore(g,pid); }catch(e2){} }
+    try{ rebuildGrid(g); if(plan) (D0.l11?lunApplyPlan:terrApplyPlan)(g,pid,plan); else (D0.l11?lunarisTurn:terranionTurn)(g,pid,Math.min(ms,4000)); }catch(e){ console.error(e); try{ aiTurnCore(g,pid); }catch(e2){} }
     if(doRv) try{ reviewEnd(g,pid); }catch(e){}
     cb(); };
   let w=null;
@@ -7323,6 +7383,7 @@ onmessage = e => { const d = e.data;
     postMessage({ done: 1, state: JSON.stringify(g0, (k, v) => (k === 'ug' || k === 'vis' || k === '_tvis') ? undefined : v), evs, log: g0.log }); return; }
   if (d.mode === 'bot'){ // a Terranion bot turn in a normal game
     const g0 = JSON.parse(d.gs); g0.log = []; rebuildGrid(g0); const pid = d.pid, D = diffOf(g0, pid);
+    if (D.l11){ postMessage({ done: 1, plan: lunPlanFor(g0, pid, d.ms) }); return; }
     if (D.nnw) NNW = D.nnw; TERR.on = true;
     const root = fastClone(g0); root._planning = false; terrFog(g0, root, pid, D); rebuildGrid(root);
     const S = makeSearcher(root, Object.assign({ ms: d.ms, me: pid, seed: (NOW() ^ (pid * 7919)) >>> 0 }, terrOptions(d.ms, root.N), D.lopt || {}));
