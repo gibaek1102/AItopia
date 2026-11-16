@@ -775,26 +775,27 @@ function tileOptions(g,pid,x,y){
   const adjCount = imp => { let n=0; nbrs(g,x,y,(a,b,q)=>{ if(q.imp===imp&&q.cityOf>=0&&q.owner===t.owner) n++; }); return n; }; // adjacent Farm/Lumber Hut/Mine counts even when it belongs to another city of the same player (Eric, 2026-10-22)
   const water=isWaterT(t);
   const fieldLike = t.t===T_FIELD || (sp==='aq' && water && !t.ice); // Aquarion builds land improvements on water
+  const rOK = !t.res || !(t.res==='crop' && (!!t.spore || (TRIBES[t.reg].sp==='cy' && !t.nsp))); // buildings may stand on a resource (it stays underneath), except on Spores (Eric, 2026-11-16)
   if (own && t.city<0){
-    if (t.res==='fruit' && H('organization')) out.push({id:'fruit',n:'Harvest fruit',c:2,pop:1});
-    if (t.res==='animal' && H('hunting') && sp!=='el') out.push({id:'hunt',n:'Hunting',c:2,pop:1});
-    if (t.res==='animal' && H('hunting') && sp==='el') out.push({id:'enchant',n:'Animal enchantment → Polytaur',c:3,pop:0});
-    if (t.res==='fish' && (sp==='po'?H('ramming'):H('fishing'))) out.push({id:'fish',n:'Fishing',c:2,pop:1});
-    if (t.res==='crop' && H('farming')){ // fandom Farm: only on crop; Fungi: Cymanti only, on a land tile with spores. Spores (Cymanti land, or left by poison kills and explosions) are not crop, so other tribes cannot farm them
+    if (!t.imp && t.res==='fruit' && H('organization')) out.push({id:'fruit',n:'Harvest fruit',c:2,pop:1});
+    if (!t.imp && t.res==='animal' && H('hunting') && sp!=='el') out.push({id:'hunt',n:'Hunting',c:2,pop:1});
+    if (!t.imp && t.res==='animal' && H('hunting') && sp==='el') out.push({id:'enchant',n:'Animal enchantment → Polytaur',c:3,pop:0});
+    if (!t.imp && t.res==='fish' && (sp==='po'?H('ramming'):H('fishing'))) out.push({id:'fish',n:'Fishing',c:2,pop:1});
+    if (!t.imp && t.res==='crop' && H('farming')){ // fandom Farm: only on crop; Fungi: Cymanti only, on a land tile with spores. Spores (Cymanti land, or left by poison kills and explosions) are not crop, so other tribes cannot farm them
       const spr = !!t.spore || (TRIBES[t.reg].sp==='cy' && !t.nsp);
       if (spr){ if (sp==='cy') out.push({id:'fungi',n:'Fungi',c:5,pop:1}); }
       else if (sp!=='cy') out.push({id:'farm',n:'Farm',c:5,pop:2}); }
-    if (t.res==='aquacrop' && sp==='aq' && H('ramming')) out.push({id:'aquafarm',n:'Aqua farm',c:5,pop:2});
-    if (t.res==='metal' && H('mining')) out.push({id:'mine',n:'Mine',c:5,pop:2});
+    if (!t.imp && t.res==='aquacrop' && sp==='aq' && H('ramming')) out.push({id:'aquafarm',n:'Aqua farm',c:5,pop:2});
+    if (!t.imp && t.res==='metal' && H('mining')) out.push({id:'mine',n:'Mine',c:5,pop:2});
     if (t.t===T_FOREST && !t.imp && H('forestry')) out.push({id:'lumber',n:'Lumber hut',c:3,pop:1});
     if (t.t===T_FOREST && !t.imp && H('forestry') && sp!=='el') out.push({id:'clear',n:'Clear forest (+1★)',c:-1,pop:0});
-    if (sp==='el' && H('forestry') && !t.imp && !t.res && (t.t===T_FIELD||t.t===T_FOREST||t.t===T_MTN) && !cityHas('sanctuary')){
+    if (sp==='el' && H('forestry') && !t.imp && rOK && (t.t===T_FIELD||t.t===T_FOREST||t.t===T_MTN) && !cityHas('sanctuary')){
       let f=0; nbrs(g,x,y,(a,b,q)=>{ if(q.t===T_FOREST) f++; }); if(f) out.push({id:'sanctuary',n:'Sanctuary',c:5,pop:0}); }
     if (t.t===T_FOREST && !t.imp && H('construction') && sp!=='aq' && sp!=='cy') out.push({id:'burn',n:'Burn forest (→crop)',c:3,pop:0}); // 3★ since the 2025 Balance Pass; Elyrion can burn but not clear (fandom ∑∫ỹriȱŋ)
     if (sp==='aq' && t.flood && t.t===T_FIELD && !t.res && !t.imp && H('construction')) out.push({id:'fertilize',n:'Fertilize (→crop)',c:5,pop:0});
     if (t.t===T_FIELD && !t.res && !t.imp && H('spiritualism')) out.push({id:'grow',n:'Grow forest',c:5,pop:0});
-    if (t.t===T_FOREST && !t.res && !t.imp && H('smithery') && !cityHas('forge')) out.push({id:'forge',n:'Forge',c:5,pop:2*adjCount('mine')}); // Forge: field or forest (fandom Forge)
-    if (fieldLike && !t.res && !t.imp){
+    if (t.t===T_FOREST && rOK && !t.imp && H('smithery') && !cityHas('forge')) out.push({id:'forge',n:'Forge',c:5,pop:2*adjCount('mine')}); // Forge: field or forest (fandom Forge)
+    if (fieldLike && rOK && !t.imp){
       if (H('construction') && sp!=='cy' && !cityHas('windmill')) out.push({id:'windmill',n:'Windmill',c:5,pop:adjCount('farm')}); // Cymanti Recycling has no Windmill (fandom Construction)
       if (H('mathematics') && !cityHas('sawmill')) out.push({id:'sawmill',n:'Sawmill',c:5,pop:adjCount('lumber')});
       if (H('smithery') && !cityHas('forge')) out.push({id:'forge',n:'Forge',c:5,pop:2*adjCount('mine')});
@@ -803,15 +804,15 @@ function tileOptions(g,pid,x,y){
       if (sp==='cy' && H('roads') && !cityHas('mycelium') && !water) out.push({id:'mycelium',n:'Mycelium',c:5,pop:0});
       if (sp==='cy' && H('trade') && !water && !cityHas('clathrus')) out.push({id:'clathrus',n:'Clathrus (+1★ per adjacent fungi)',c:5,pop:0}); // rework: land building grown from Fungi, still poisonous (namu: +1★ per nearby Fungi, UNVERIFIED)
     }
-    if (sp==='po' && H('trade') && (t.t===T_FIELD||t.ice) && !t.res && !t.imp && !g.tiles.some(q=>q.imp==='icebank'&&q.owner===pid)) out.push({id:'icebank',n:'Ice bank',c:20,pop:0});
-    if (t.t===T_MTN && !t.res && !t.imp && H('meditation') && sp!=='cy') out.push({id:'temple',n:'Mountain temple',c:20,pop:1});
-    if (t.t===T_MTN && !t.res && !t.imp && sp==='cy' && H('philosophy')) out.push({id:'temple',n:'Mountain temple',c:20,pop:1});
-    if (t.t===T_FOREST && !t.imp && !t.res && H('spiritualism')) out.push({id:'temple',n:'Forest temple',c:15,pop:1});
-    if (water && !t.ice && !t.res && !t.imp && H('aquatism') && sp!=='po') out.push({id:'temple',n:'Water temple',c:20,pop:1});
-    if (water && t.ice && !t.imp && !t.res && sp==='po' && H('aquatism')) out.push({id:'temple',n:'Ice temple',c:20,pop:1});
-    if (water && t.ice && !t.imp && !t.res && sp==='po' && H('fishing')) out.push({id:'outpost',n:'Outpost',c:5,pop:1});
+    if (sp==='po' && H('trade') && (t.t===T_FIELD||t.ice) && rOK && !t.imp && !g.tiles.some(q=>q.imp==='icebank'&&q.owner===pid)) out.push({id:'icebank',n:'Ice bank',c:20,pop:0});
+    if (t.t===T_MTN && rOK && !t.imp && H('meditation') && sp!=='cy') out.push({id:'temple',n:'Mountain temple',c:20,pop:1});
+    if (t.t===T_MTN && rOK && !t.imp && sp==='cy' && H('philosophy')) out.push({id:'temple',n:'Mountain temple',c:20,pop:1});
+    if (t.t===T_FOREST && !t.imp && rOK && H('spiritualism')) out.push({id:'temple',n:'Forest temple',c:15,pop:1});
+    if (water && !t.ice && rOK && !t.imp && H('aquatism') && sp!=='po') out.push({id:'temple',n:'Water temple',c:20,pop:1});
+    if (water && t.ice && !t.imp && rOK && sp==='po' && H('aquatism')) out.push({id:'temple',n:'Ice temple',c:20,pop:1});
+    if (water && t.ice && !t.imp && rOK && sp==='po' && H('fishing')) out.push({id:'outpost',n:'Outpost',c:5,pop:1});
     if (sp==='cy' && H('roads') && isWaterT(t) && t.algae && !t.imp && !cityHas('mycelium')) out.push({id:'mycelium',n:'Mycelium (on algae)',c:5,pop:0}); // rework: Mycelium can be built on Algae // // FW: replaces the Customs House, built on shallow water or ocean
-    if (t.t===T_WATER && !t.ice && !t.res && !t.imp && canPort(g,pid) && H('fishing')) out.push({id:'port',n:'Port',c:7,pop:1});
+    if (t.t===T_WATER && !t.ice && rOK && !t.imp && canPort(g,pid) && H('fishing')) out.push({id:'port',n:'Port',c:7,pop:1});
   }
   if (own && t.city<0 && !t.imp && (t.t===T_FIELD || t.t===T_WATER || (t.ice && isWaterT(t)))) for (const m of (g.players[pid].monuments||[])) // fandom Buildings/Terrain: monuments go on field, shallow water and ice (not forest, mountain or open ocean)
     out.push({id:'mon:'+m,n:`Monument: ${TASKS[m].mon}`,c:0,pop:3});
@@ -940,7 +941,7 @@ function moveCost(g,u,fi,ti){
   if (tt.t===T_MTN) return {c:1,stop:1};
   const roadOK=t=>(t.road||t.city>=0)&&!(t.owner>=0&&t.owner!==pid&&t.city<0&&!atPeace(g,pid,t.owner));
   if (!sk.has('creep') && (tf.rail||tt.rail) && (tf.rail||tf.city>=0) && (tt.rail||tt.city>=0) && roadOK(tf) && roadOK(tt)) return {c:1/3};
-  if (!sk.has('creep') && roadOK(tf) && roadOK(tt) && !isWater(tf)) return {c:0.5};
+  if (!sk.has('creep') && roadOK(tf) && roadOK(tt) && !isWater(tf)){ const m=Math.max(1,moveRange(g,u)); return {c:m/(m+1)}; } // roads: +1 movement along a road (Eric): range m -> m+1 road tiles (move 1 -> 2, move 2 -> 3)
   if (tt.t===T_FOREST && !sk.has('creep')) return {c:1,stop:1};
   return {c:1};
 }
@@ -1098,7 +1099,7 @@ function freezeAround(g,u,area){
     const o=unitAt(g,x,y), enemy=o&&o.owner!==u.owner;
     if (enemy) o.frozen=1;
     if (isWaterT(t) && !t.ice){ t.ice=1; } // buildings are kept under ice (FW Terrain); water under an enemy ship freezes too (the ship is frozen with it)
-    if ((area || U(u).sk.has('freezearea')) && !isWaterT(t) && spOf(g,u.owner)==='po' && !(t.owner>=0 && t.owner!==u.owner && t.cityOf>=0)) t.ice=1; // Freeze Area, and the Gaami's Auto Freeze after it moves (fandom Gaami: freezes all adjacent tiles), convert land to Polaris land; land inside an enemy city cannot be frozen (fandom Gaami)
+    if ((area || U(u).sk.has('freezearea') || U(u).sk.has('autofreeze')) && !isWaterT(t) && (spOf(g,u.owner)==='po' || U(u).sk.has('noattack')) && !(t.owner>=0 && t.owner!==u.owner && t.cityOf>=0)) t.ice=1; // Freeze Area, the Gaami's Auto Freeze after it moves, and the Mooni's Auto Freeze (fandom Mooni: walk it to freeze patches of land; it keeps freezing after a Mind Bender converts it) (fandom Gaami: freezes all adjacent tiles), convert land to Polaris land; land inside an enemy city cannot be frozen (fandom Gaami)
   });
 }
 function tentacleSweep(g,j){ nbrs(g,j.x,j.y,(x,y)=>{ const o=unitAt(g,x,y); if(o&&o.owner!==j.owner) hitNoRet(g,j,o); }); }
@@ -1232,7 +1233,7 @@ function unitActions(g,u){
   const out=[], d=U(u), t=tile(g,u.x,u.y), pid=u.owner;
   if (u.frozen || u.done) return out;
   const fresh = !u.mv && !u.at;
-  if (fresh && u.x===u.sx && u.y===u.sy && !d.sk.has('naval') && !d.sk.has('water') && !d.sk.has('nocapture')){
+  if (fresh && u.x===u.sx && u.y===u.sy && ((!d.sk.has('naval') && !d.sk.has('water')) || t.city>=0) && !d.sk.has('nocapture')){ // a ship that sits on a city tile (Aquarion's water cities) can capture it (Eric, 2026-11-16)
     if (t.village) out.push({id:'capture',n:'Village captured'});
     else if (t.city>=0 && g.cities[t.city].owner!==pid && !d.sk.has('infiltrate') && !atPeace(g,pid,g.cities[t.city].owner)) out.push({id:'capture',n:'City captured'});
   }
