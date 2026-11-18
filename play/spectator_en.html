@@ -2234,6 +2234,7 @@ const RV_K=[1,0.04];
 // Super 27/40 (+127), Ultra 29/40 (+168), Hyper 29.5/40 (+179), Max 29.5/40 (+179). Hyper and Max are within noise of each other.
 const BOT_ELO = {easy:500,normal:760,hard:930,crazy:1190,super:1320,ultra:1360,hyper:1370,max:1370,lunaris:1450};
 // display only (the game's own Elo math keeps the raw values): bot ratings are shown minus 900, so the bot is not shown as 1450 against a 650 player
+const isUnmeasuredBot=k=>/^(terranion|terranion14|lunaris11|lunarisheavy|jupiter)/.test(String(k)); // placeholder ratings until measured
 const shownElo=k=>{ const v=BOT_ELO[k]; return v==null?'–':(v-900); }; // all bots: rating minus 900 (800~1000 range, 900 used)
 function evalPlayer(g,pid){
   const p=g.players[pid]; if(!p.alive) return 0;
@@ -6839,7 +6840,7 @@ function setup(){
     openModal(`<h2>AItopia</h2><p class="lead">Bot-vs-bot spectator</p>
       <div class="row">${saved&&!saved.over&&saved.spectate?`<button class="pri" id="sCont">Continue · ${TRIBES[saved.players[0].tribe].n} · ${saved.N}×${saved.N} · turn ${saved.turn-1}</button>`:''}</div>
             <div class="lbl">Difficulty <span style="text-transform:none;letter-spacing:0">(tap to apply to all bots)</span></div><div class="row">${opt('diff',Object.entries(DIFFS).filter(([k,v])=>!v.hide).map(([k,v])=>[k,v.n]))}</div>
-      <p class="note" style="margin:-8px 0 14px">${d.n}: ${d.skill<1?`Blunder chance ${Math.round((1-d.skill)*55)}%`:'No blunders'} · bot AItopian rating ${BOT_ELO[st.diff]??'–'} estimate (Elo equivalent ${shownElo(st.diff)})</p>
+      <p class="note" style="margin:-8px 0 14px">${d.n}: ${d.skill<1?`Blunder chance ${Math.round((1-d.skill)*55)}%`:'No blunders'} · bot AItopian rating ${isUnmeasuredBot(st.diff)?'not measured yet':`${BOT_ELO[st.diff]??'–'} estimate (Elo equivalent ${shownElo(st.diff)})`}</p>
       ${(st.diff==='terranion14'||(st.spec&&st.specDiff==='terranion14')||st.botList.slice(0,st.bots).some(b=>b.diff==='terranion14'))?`<div class="lbl">Terranion thinking time <span style="text-transform:none;letter-spacing:0">(per bot turn)</span></div><div class="row" style="align-items:center">${[[30,'30 s'],[60,'1 min'],[120,'2 min'],[300,'5 min'],[3600,'1 hour'],[18000,'5 hours'],[72000,'20 hours']].map(([v,l])=>`<button data-tms="${v}" class="${+st.tms===v?'on':''}">${l}</button>`).join('')}<label style="display:flex;gap:6px;align-items:center;font-size:13px">Custom <input id="sTms" type="number" min="1" max="72000" step="1" value="${+st.tms||120}" style="width:72px;font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px" aria-label="Terranion thinking time (seconds)"> s (1-72000)</label></div>`:''}
       ${st.spec?`<div class="lbl">Turn limit</div><div class="row">${[[30,'30 turns'],[50,'50 turns'],[0,'Unlimited']].map(([v,l])=>`<button data-spt="${v}" class="${+st.specT===v?'on':''}">${l}</button>`).join('')}</div>`:''}
       <label class="tog"><input type="checkbox" id="sDom" ${st.dom?'checked':''}> Win by capturing every capital <small>Capitals cannot be relocated, and a captured capital's bonus goes to the captor.</small></label>

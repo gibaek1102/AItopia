@@ -2234,6 +2234,7 @@ const RV_K=[1,0.04];
 // Super 27/40 (+127), Ultra 29/40 (+168), Hyper 29.5/40 (+179), Max 29.5/40 (+179). Hyper and Max are within noise of each other.
 const BOT_ELO = {easy:500,normal:760,hard:930,crazy:1190,super:1320,ultra:1360,hyper:1370,max:1370,lunaris:1450};
 // display only (the game's own Elo math keeps the raw values): bot ratings are shown minus 900, so the bot is not shown as 1450 against a 650 player
+const isUnmeasuredBot=k=>/^(terranion|terranion14|lunaris11|lunarisheavy|jupiter)/.test(String(k)); // placeholder ratings until measured
 const shownElo=k=>{ const v=BOT_ELO[k]; return v==null?'–':(v-900); }; // all bots: rating minus 900 (800~1000 range, 900 used)
 function evalPlayer(g,pid){
   const p=g.players[pid]; if(!p.alive) return 0;
@@ -6839,7 +6840,7 @@ function setup(){
     openModal(`<h2>AItopia</h2><p class="lead">봇 대 봇 관전</p>
       <div class="row">${saved&&!saved.over&&saved.spectate?`<button class="pri" id="sCont">이어하기 · ${TRIBES[saved.players[0].tribe].n} · ${saved.N}×${saved.N} · 턴 ${saved.turn-1}</button>`:''}</div>
             <div class="lbl">난이도 <span style="text-transform:none;letter-spacing:0">(누르면 모든 봇에 일괄 적용)</span></div><div class="row">${opt('diff',Object.entries(DIFFS).filter(([k,v])=>!v.hide).map(([k,v])=>[k,v.n]))}</div>
-      <p class="note" style="margin:-8px 0 14px">${d.n}: ${d.skill<1?`실수 확률 ${Math.round((1-d.skill)*55)}%`:'실수 없음'} · 봇 AItopian 레이팅 ${BOT_ELO[st.diff]??'–'} 추정 (Elo 환산 ${shownElo(st.diff)})</p>
+      <p class="note" style="margin:-8px 0 14px">${d.n}: ${d.skill<1?`실수 확률 ${Math.round((1-d.skill)*55)}%`:'실수 없음'} · 봇 AItopian 레이팅 ${isUnmeasuredBot(st.diff)?'미측정':`${BOT_ELO[st.diff]??'–'} 추정 (Elo 환산 ${shownElo(st.diff)})`}</p>
       ${(st.diff==='terranion14'||(st.spec&&st.specDiff==='terranion14')||st.botList.slice(0,st.bots).some(b=>b.diff==='terranion14'))?`<div class="lbl">Terranion 생각 시간 <span style="text-transform:none;letter-spacing:0">(봇 한 턴마다)</span></div><div class="row" style="align-items:center">${[[30,'30초'],[60,'1분'],[120,'2분'],[300,'5분'],[3600,'1시간'],[18000,'5시간'],[72000,'20시간']].map(([v,l])=>`<button data-tms="${v}" class="${+st.tms===v?'on':''}">${l}</button>`).join('')}<label style="display:flex;gap:6px;align-items:center;font-size:13px">직접 <input id="sTms" type="number" min="1" max="72000" step="1" value="${+st.tms||120}" style="width:72px;font:inherit;color:var(--fg);background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:5px" aria-label="Terranion 생각 시간(초)"> 초 (1~72000)</label></div>`:''}
       ${st.spec?`<div class="lbl">턴 제한</div><div class="row">${[[30,'30턴'],[50,'50턴'],[0,'무제한']].map(([v,l])=>`<button data-spt="${v}" class="${+st.specT===v?'on':''}">${l}</button>`).join('')}</div>`:''}
       <label class="tog"><input type="checkbox" id="sDom" ${st.dom?'checked':''}> 모든 수도 점령시 승리 <small>수도는 천도할 수 없고, 점령한 수도의 보너스는 점령한 쪽이 가져요.</small></label>
