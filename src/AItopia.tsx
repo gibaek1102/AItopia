@@ -479,8 +479,9 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
           </div>
           <p className="lead" style={{ marginTop: 12 }}>연구 정체는 greedy에서만 나타나고, 샘플링으로 두면 40턴까지 기술 12~21개를 연구합니다. 다만 샘플링 평가는 terranion@10에서 20.0%(0승)로 greedy보다 낮아 평가 방식 변경은 폐기했습니다.</p>
 
-          <h3 style={{ margin: "26px 0 8px", fontSize: 17 }}>시험한 것과 결과</h3>
-          <div className="card">
+          <details className="card" style={{ marginTop: 26 }}>
+            <summary style={{ cursor: "pointer", fontWeight: 700, fontSize: 17, color: "var(--text)" }}>시험한 것과 결과 (전체 {EXPERIMENTS.length}행, 눌러서 펼치기)</summary>
+            <div style={{ marginTop: 12 }}>
             <p className="chart-sub">합격 기준은 결과를 보기 전에 정했고, 불합격이면 접었습니다. 결과를 본 뒤 기준을 바꿔 다시 시도하지 않았습니다.</p>
             <div className="tbl">
               <table className="exp">
@@ -488,7 +489,8 @@ export default function AItopia({ theme, onBack }: { theme?: ThemeName; onBack?:
                 <tbody>{EXPERIMENTS.map((r) => (<tr key={r.k}><td><b style={{ color: "var(--text)" }}>{r.k}</b></td><td>{r.what}</td><td>{r.res}</td></tr>))}</tbody>
               </table>
             </div>
-          </div>
+            </div>
+          </details>
 
           <h3 style={{ margin: "26px 0 8px", fontSize: 17 }}>속도 개선</h3>
           <div className="card">
