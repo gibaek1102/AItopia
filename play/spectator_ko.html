@@ -787,7 +787,7 @@ function tileOptions(g,pid,x,y){
     if (t.t===T_FOREST && !t.imp && H('forestry')) out.push({id:'lumber',n:'벌목장',c:3,pop:1});
     if (t.t===T_FOREST && !t.imp && H('forestry') && sp!=='el') out.push({id:'clear',n:'숲 개간 (+1★)',c:-1,pop:0});
     if (sp==='el' && H('forestry') && !t.imp && !t.res && (t.t===T_FIELD||t.t===T_FOREST||t.t===T_MTN) && !cityHas('sanctuary')){
-      let f=0; nbrs(g,x,y,(a,b,q)=>{ if(q.t===T_FOREST) f++; }); if(f) out.push({id:'sanctuary',n:'성역 (Sanctuary)',c:5,pop:0}); }
+      let f=0; nbrs(g,x,y,(a,b,q)=>{ if(q.t===T_FOREST) f++; }); if(f) out.push({id:'sanctuary',n:'성소 (Sanctuary)',c:5,pop:0}); }
     if (t.t===T_FOREST && !t.imp && H('construction') && sp!=='aq' && sp!=='cy') out.push({id:'burn',n:'숲 태우기 (→작물)',c:3,pop:0}); // 3★ since the 2025 Balance Pass; Elyrion can burn but not clear (fandom ∑∫ỹriȱŋ)
     if (sp==='aq' && t.flood && t.t===T_FIELD && !t.res && !t.imp && H('construction')) out.push({id:'fertilize',n:'비옥화 (→작물)',c:5,pop:0});
     if (t.t===T_FIELD && !t.res && !t.imp && H('spiritualism')) out.push({id:'grow',n:'숲 조성',c:5,pop:0});
@@ -5820,7 +5820,7 @@ const SAVE='vpoly-save-v1';
 const RES_E={fruit:'🍒',crop:'🌾',animal:'🦌',fish:'🐟',metal:'⛰️',starfish:'⭐',aquacrop:'🪸'};
 RES_E.metal='🪨';
 const IMP_E={farm:'🌽',mine:'⛏️',lumber:'🪵',windmill:'🎡',sawmill:'🪚',forge:'🔥',market:'🏪',temple:'⛩️',port:'⚓',fungi:'🍄',sanctuary:'🌈',icebank:'🏦',outpost:'⛺',mycelium:'🕸️',atoll:'🏖️',monument:'🗽',clathrus:'🌺'};
-const IMP_KO={farm:'농장',mine:'광산',lumber:'벌목장',windmill:'풍차',sawmill:'제재소',forge:'대장간',market:'시장',temple:'신전',port:'항구',fungi:'균류',sanctuary:'성역',icebank:'얼음 은행',outpost:'전초기지',mycelium:'균사체',atoll:'아톨',monument:'기념비',clathrus:'클라트루스'};
+const IMP_KO={farm:'농장',mine:'광산',lumber:'벌목장',windmill:'풍차',sawmill:'제재소',forge:'대장간',market:'시장',temple:'신전',port:'항구',fungi:'균류',sanctuary:'성소',icebank:'얼음 은행',outpost:'전초기지',mycelium:'균사체',atoll:'아톨',monument:'기념비',clathrus:'클라트루스'};
 const polarLand=t=>!!t.ice && !isWaterT(t); // Polaris-converted land
 const aqLand=t=>TRIBES[t.reg].sp==='aq' && !polarLand(t);
 const resIcon=t=>t.res==='crop'&&((TRIBES[t.reg].sp==='cy'&&!t.nsp)||t.spore)?'🦠':t.res==='animal'&&polarLand(t)?'🦣':t.res==='animal'&&aqLand(t)?'🐢':t.res==='fruit'&&aqLand(t)?'🥒':RES_E[t.res]; // tribe skins: Polaris Mamoo, Aquarion turmelon / tunico
@@ -6361,7 +6361,7 @@ function techDesc(pid,t){
   const B={climbing:'산 이동·산 방어',mining:'광산',smithery:'대장간',meditation:sp==='cy'?'':'산 신전',philosophy:'연구비 -33%'+(sp==='cy'?'·산 신전':''),
     fishing:sp==='po'?'전초기지':sp==='cy'?'낚시·조류(Algae)':sp==='aq'?'낚시':'낚시·항구·뗏목',sailing:sp?'대양 이동':'Scout·대양 이동',navigation:(sp?'':'Bomber·')+'불가사리',
     ramming:sp==='po'?'낚시':sp==='aq'?'아쿠아 농장·아톨':sp?'':'Rammer',aquatism:sp==='po'?'얼음 신전·활강(Glide)':'물 방어·물 신전',
-    hunting:sp==='el'?'동물 마법부여 (Polytaur)':'사냥',archery:'숲 방어',spiritualism:'숲 조성·숲 신전',forestry:sp==='el'?'벌목장·성역 (숲 개간 불가)':'벌목장·숲 개간',mathematics:'제재소',
+    hunting:sp==='el'?'동물 마법부여 (Polytaur)':'사냥',archery:'숲 방어',spiritualism:'숲 조성·숲 신전',forestry:sp==='el'?'벌목장·성소 (숲 개간 불가)':'벌목장·숲 개간',mathematics:'제재소',
     organization:'열매',farming:sp==='cy'?'균류':'농장',construction:sp==='aq'?'풍차·비옥화':sp==='cy'?'분해(Decompose)·균류 Lv3':'풍차·숲 태우기(3★)',strategy:'평화 조약',diplomacy:'대사관·적 수도 시야',riding:'',
     roads:sp==='aq'?'침수시키기·버블(침수 타일 이동 +1)':sp==='cy'?'균사체 (3칸 내 연결)':'도로·다리',trade:sp==='po'?'시장·얼음 은행':sp==='cy'?'클라트루스 (육지, 인접 균류당 +1★)':'시장',freespirit:sp==='aq'?'대양 이동·신전·해산':'신전·해산',chivalry:sp==='cy'?'':'건물 파괴'};
   const bb=B[t]; if(bb) out.push(bb);
@@ -6555,14 +6555,14 @@ async function rvOpen(){
 }
 document.addEventListener('keydown',e=>{ if(!RPV||!$('modal').hidden) return;
   if(e.key==='ArrowLeft'){ rvPlay(false); rvShow(RPV.idx-1); } else if(e.key==='ArrowRight'){ rvPlay(false); rvShow(RPV.idx+1,RPV.mode==='m'); } else if(e.key===' '){ e.preventDefault(); rvPlay(!RPV.playing); } else if(e.key==='Escape'){ rvClose(); } });
-$('bMenu').onclick=()=>{ if(RPV) rvClose(); openModal(`<h2>메뉴</h2><div class="row"><button id="mSave" class="pri">저장 / 불러오기</button><button id="mRev">게임 리뷰</button><button id="mRpv">리플레이</button><button id="mNew2" class="warn">새 게임</button><button id="mClose">닫기</button></div>
+$('bMenu').onclick=()=>{ if(RPV) rvClose(); openModal(`<h2>메뉴</h2><div class="row"><button id="mRev">게임 리뷰</button><button id="mRpv">리플레이</button><button id="mNew2" class="warn">새 게임</button><button id="mClose">닫기</button></div>
   <div class="lbl">봇 턴 보기</div><div class="row">${[['normal','보통'],['fast','빠르게'],['off','끔']].map(([k,l])=>`<button data-rp="${k}" class="${replayMode()===k?'on':''}">${l}</button>`).join('')}</div>
   <div class="lbl">안개 투명도</div><div class="row" style="align-items:center"><input id="mFog" type="range" min="10" max="100" step="5" value="${Math.round(FOGA*100)}" style="flex:1;min-width:0;accent-color:var(--acc)" aria-label="안개 투명도"><b id="mFogL" style="min-width:3.2em;text-align:right">${Math.round(FOGA*100)}%</b></div><p class="note" style="margin-top:4px">100%는 원래 안개, 낮출수록 안개 아래 지형(땅·물·숲·산)·마을·자원·도시·유닛이 비쳐 보입니다. 화면 표시만 바뀌고 시야와 규칙은 그대로예요.</p>
   <div class="lbl">디버그</div><div class="row"><button id="mDbg" class="${DBGSEE?'on':''}">${DBGSEE?'안개 걷기: 켜짐':'안개 걷기: 꺼짐'}</button></div><p class="note" style="margin-top:4px">화면 표시만 바뀝니다. 봇의 시야와 게임 규칙에는 영향이 없어요.</p>
   <p class="note">${g?`맵 ${g.N}×${g.N} ${(MAPS[g.mapType]||{n:''}).n}. 봇 수입 보너스 ${g.noBotBonus?'끔':'원작식'}. 봇: `+g.players.filter(p=>p.ai).map(p=>`${TRIBES[p.tribe].n} ${diffOf(g,p.id).n}`).join(', '):''}. 봇도 안개 속에서 플레이합니다. 매 턴 자동 저장도 됩니다. 새 게임을 시작하면 자동 저장은 덮어써지니, 남길 판은 슬롯에 저장하세요.</p>`);
   $('sheet').querySelectorAll('[data-rp]').forEach(b=>b.onclick=()=>{ try{ localStorage.setItem('vpoly-replay',b.dataset.rp); }catch(e){} $('sheet').querySelectorAll('[data-rp]').forEach(x=>x.classList.toggle('on',x===b)); });
   { const f=$('mFog'); if(f){ f.oninput=()=>{ FOGA=+f.value/100; $('mFogL').textContent=f.value+'%'; try{ localStorage.setItem('vpoly-fogA',String(FOGA)); }catch(e){} draw(); }; } }
-  $('mDbg').onclick=()=>{ DBGSEE=!DBGSEE; try{ localStorage.setItem('vpoly-dbgsee',DBGSEE?'1':'0'); }catch(e){} closeModal(); draw(); refresh(); }; $('mNew2').onclick=()=>{ setup(); }; $('mClose').onclick=closeModal; $('mSave').onclick=()=>saveModal(closeModal); $('mRev').onclick=reviewModal; $('mRpv').onclick=rvOpen; };
+  $('mDbg').onclick=()=>{ DBGSEE=!DBGSEE; try{ localStorage.setItem('vpoly-dbgsee',DBGSEE?'1':'0'); }catch(e){} closeModal(); draw(); refresh(); }; $('mNew2').onclick=()=>{ setup(); }; $('mClose').onclick=closeModal;  $('mRev').onclick=reviewModal; $('mRpv').onclick=rvOpen; };
 
 // ---------- save ----------
 function save(){ if(RPV) return; if(ADVM){ advSave(); return; } try{ localStorage.setItem(SAVE, JSON.stringify(g,(k,v)=>(k==='ug'||k==='vis')?undefined:v)); }catch(e){
@@ -6738,7 +6738,7 @@ function setup(){
       <p class="note" style="margin:-8px 0 14px">${MAPS[st.map].n}: ${MAPS[st.map].d}</p>
       <div class="row"><button class="pri" id="sGo">관전 시작</button></div>
       <p class="note" style="margin-top:14px;text-align:center"><b>NOT AN OFFICIAL Polytopia PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MIDJIWAN.</b><br>비공식 팬 프로젝트이며 Midjiwan과 무관하고 승인받지 않았습니다.</p>
-      <p class="note">유닛 스탯·스폰율·부족 시작값은 2026년 10월 기준 위키·나무위키·공식 패치노트로 재확인. Easy~Crazy 봇 수입은 위키 값, Super 이상과 커스텀 맵 유형은 자체 설정. 근사치: Clathrus 수입·독, 균사체 회복량, 유적 개수, 아쿠아리온 육지 이동. 봇 관계 수치는 위키의 요인 목록을 바탕으로 한 자체 가중치. 확인 못 한 값(아쿠아리온 육지 이동 패널티, 유적 개수, 성역 비용 등)은 근사치. 큰 맵은 봇 턴이 몇 초 걸릴 수 있음.</p>`,true);
+      <p class="note">유닛 스탯·스폰율·부족 시작값은 2026년 10월 기준 위키·나무위키·공식 패치노트로 재확인. Easy~Crazy 봇 수입은 위키 값, Super 이상과 커스텀 맵 유형은 자체 설정. 근사치: Clathrus 수입·독, 균사체 회복량, 유적 개수, 아쿠아리온 육지 이동. 봇 관계 수치는 위키의 요인 목록을 바탕으로 한 자체 가중치. 확인 못 한 값(아쿠아리온 육지 이동 패널티, 유적 개수, 성소 비용 등)은 근사치. 큰 맵은 봇 턴이 몇 초 걸릴 수 있음.</p>`,true);
     const sh=$('sheet'), sc=sh.scrollTop;
     sh.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const k=b.dataset.k, v=b.dataset.v; st[k]=(k==='bots')?+v:v; if(k==='diff'){ st.botList.forEach(o=>o.diff=v); st.specDiff=v; } keep(); });
     const sb=sh.querySelector('#sBots'); if(sb){ sb.oninput=()=>{ st.bots=+sb.value-1; $('sBotsL').textContent=(st.bots+1)+'명'; }; sb.onchange=()=>{ fixBots(); keep(); }; }

@@ -787,7 +787,7 @@ function tileOptions(g,pid,x,y){
     if (t.t===T_FOREST && !t.imp && H('forestry')) out.push({id:'lumber',n:'벌목장',c:3,pop:1});
     if (t.t===T_FOREST && !t.imp && H('forestry') && sp!=='el') out.push({id:'clear',n:'숲 개간 (+1★)',c:-1,pop:0});
     if (sp==='el' && H('forestry') && !t.imp && !t.res && (t.t===T_FIELD||t.t===T_FOREST||t.t===T_MTN) && !cityHas('sanctuary')){
-      let f=0; nbrs(g,x,y,(a,b,q)=>{ if(q.t===T_FOREST) f++; }); if(f) out.push({id:'sanctuary',n:'성역 (Sanctuary)',c:5,pop:0}); }
+      let f=0; nbrs(g,x,y,(a,b,q)=>{ if(q.t===T_FOREST) f++; }); if(f) out.push({id:'sanctuary',n:'성소 (Sanctuary)',c:5,pop:0}); }
     if (t.t===T_FOREST && !t.imp && H('construction') && sp!=='aq' && sp!=='cy') out.push({id:'burn',n:'숲 태우기 (→작물)',c:3,pop:0}); // 3★ since the 2025 Balance Pass; Elyrion can burn but not clear (fandom ∑∫ỹriȱŋ)
     if (sp==='aq' && t.flood && t.t===T_FIELD && !t.res && !t.imp && H('construction')) out.push({id:'fertilize',n:'비옥화 (→작물)',c:5,pop:0});
     if (t.t===T_FIELD && !t.res && !t.imp && H('spiritualism')) out.push({id:'grow',n:'숲 조성',c:5,pop:0});
@@ -5820,7 +5820,7 @@ const SAVE='vpoly-save-v1';
 const RES_E={fruit:'🍒',crop:'🌾',animal:'🦌',fish:'🐟',metal:'⛰️',starfish:'⭐',aquacrop:'🪸'};
 RES_E.metal='🪨';
 const IMP_E={farm:'🌽',mine:'⛏️',lumber:'🪵',windmill:'🎡',sawmill:'🪚',forge:'🔥',market:'🏪',temple:'⛩️',port:'⚓',fungi:'🍄',sanctuary:'🌈',icebank:'🏦',outpost:'⛺',mycelium:'🕸️',atoll:'🏖️',monument:'🗽',clathrus:'🌺'};
-const IMP_KO={farm:'농장',mine:'광산',lumber:'벌목장',windmill:'풍차',sawmill:'제재소',forge:'대장간',market:'시장',temple:'신전',port:'항구',fungi:'균류',sanctuary:'성역',icebank:'얼음 은행',outpost:'전초기지',mycelium:'균사체',atoll:'아톨',monument:'기념비',clathrus:'클라트루스'};
+const IMP_KO={farm:'농장',mine:'광산',lumber:'벌목장',windmill:'풍차',sawmill:'제재소',forge:'대장간',market:'시장',temple:'신전',port:'항구',fungi:'균류',sanctuary:'성소',icebank:'얼음 은행',outpost:'전초기지',mycelium:'균사체',atoll:'아톨',monument:'기념비',clathrus:'클라트루스'};
 const polarLand=t=>!!t.ice && !isWaterT(t); // Polaris-converted land
 const aqLand=t=>TRIBES[t.reg].sp==='aq' && !polarLand(t);
 const resIcon=t=>t.res==='crop'&&((TRIBES[t.reg].sp==='cy'&&!t.nsp)||t.spore)?'🦠':t.res==='animal'&&polarLand(t)?'🦣':t.res==='animal'&&aqLand(t)?'🐢':t.res==='fruit'&&aqLand(t)?'🥒':RES_E[t.res]; // tribe skins: Polaris Mamoo, Aquarion turmelon / tunico
@@ -6307,8 +6307,8 @@ function specOver(){
   const st=standings(g);
   openModal(`<h2>관전 종료</h2><p class="lead">${g.turn}턴 · ${g.players.filter(p=>p.alive).length===1?`${tribeName(st[0].pid)} 단독 생존`:'턴 제한 도달 — 점수 순위'}</p>
     <div class="loglist">${st.map((s,k)=>`<div><span class="t">${k+1}</span><span class="dot" style="display:inline-block;background:${TRIBES[g.players[s.pid].tribe].col}"></span> ${TRIBES[g.players[s.pid].tribe].n} · ${diffOf(g,s.pid).n} · ${s.alive?s.score+'점':'멸망'}</div>`).join('')}</div>
-    <div class="row"><button class="pri" id="mNew">새 게임</button><button id="mView">맵 보기</button><button id="mExp">기록 저장</button></div>`);
-  $('mExp').onclick=exportGame; $('mNew').onclick=()=>{ try{localStorage.removeItem(SAVE);}catch(e){} setup(); }; $('mView').onclick=closeModal;
+    <div class="row"><button class="pri" id="mNew">새 게임</button><button id="mView">맵 보기</button></div>`);
+   $('mNew').onclick=()=>{ try{localStorage.removeItem(SAVE);}catch(e){} setup(); }; $('mView').onclick=closeModal;
 }
 var OVER_SHOWN=null;
 function checkOver(){
@@ -6320,9 +6320,9 @@ function checkOver(){
   const sm=summary(g)[0], d=g.eloDone.to-g.eloDone.from;
   openModal(`<h2>${g.over==='win'?'승리!':'패배'}</h2><p class="lead">${g.turn}턴 · ${g.over==='win'?'모든 부족을 정복했습니다.':'모든 도시를 잃었습니다.'}</p>
     <div class="row" style="gap:18px;align-items:baseline"><div><div class="lbl">정확성</div><b style="font-size:24px">${sm.acc==null?'–':sm.acc.toFixed(1)}</b></div><div><div class="lbl">게임 Elo 레이팅</div><b style="font-size:24px">${gameRating(g,V())??'–'}</b></div><div><div class="lbl">내 Elo 레이팅</div><b style="font-size:24px">${g.eloDone.to}</b> <span style="color:${d>=0?'var(--good)':'var(--bad)'}">${d>=0?'+':''}${d}</span></div></div>
-    <div class="row"><button class="pri" id="mRv">게임 리뷰</button><button id="mNew">새 게임</button><button id="mView">맵 보기</button><button id="mExp">기록 저장</button>${g.over==='win'?'<button id="mCont">끝까지 계속 플레이</button>':''}</div>`);
+    <div class="row"><button class="pri" id="mRv">게임 리뷰</button><button id="mNew">새 게임</button><button id="mView">맵 보기</button>${g.over==='win'?'<button id="mCont">끝까지 계속 플레이</button>':''}</div>`);
   if($('mCont')) $('mCont').onclick=()=>{ g.cont=1; g.won=g.turn; g.over=null; closeModal(); save(); refresh(); };
-  $('mRv').onclick=reviewModal; $('mExp').onclick=exportGame;
+  $('mRv').onclick=reviewModal; 
   $('mNew').onclick=()=>{ try{localStorage.removeItem(SAVE);}catch(e){} setup(); };
   $('mView').onclick=closeModal;
 }
@@ -6361,7 +6361,7 @@ function techDesc(pid,t){
   const B={climbing:'산 이동·산 방어',mining:'광산',smithery:'대장간',meditation:sp==='cy'?'':'산 신전',philosophy:'연구비 -33%'+(sp==='cy'?'·산 신전':''),
     fishing:sp==='po'?'전초기지':sp==='cy'?'낚시·조류(Algae)':sp==='aq'?'낚시':'낚시·항구·뗏목',sailing:sp?'대양 이동':'Scout·대양 이동',navigation:(sp?'':'Bomber·')+'불가사리',
     ramming:sp==='po'?'낚시':sp==='aq'?'아쿠아 농장·아톨':sp?'':'Rammer',aquatism:sp==='po'?'얼음 신전·활강(Glide)':'물 방어·물 신전',
-    hunting:sp==='el'?'동물 마법부여 (Polytaur)':'사냥',archery:'숲 방어',spiritualism:'숲 조성·숲 신전',forestry:sp==='el'?'벌목장·성역 (숲 개간 불가)':'벌목장·숲 개간',mathematics:'제재소',
+    hunting:sp==='el'?'동물 마법부여 (Polytaur)':'사냥',archery:'숲 방어',spiritualism:'숲 조성·숲 신전',forestry:sp==='el'?'벌목장·성소 (숲 개간 불가)':'벌목장·숲 개간',mathematics:'제재소',
     organization:'열매',farming:sp==='cy'?'균류':'농장',construction:sp==='aq'?'풍차·비옥화':sp==='cy'?'분해(Decompose)·균류 Lv3':'풍차·숲 태우기(3★)',strategy:'평화 조약',diplomacy:'대사관·적 수도 시야',riding:'',
     roads:sp==='aq'?'침수시키기·버블(침수 타일 이동 +1)':sp==='cy'?'균사체 (3칸 내 연결)':'도로·다리',trade:sp==='po'?'시장·얼음 은행':sp==='cy'?'클라트루스 (육지, 인접 균류당 +1★)':'시장',freespirit:sp==='aq'?'대양 이동·신전·해산':'신전·해산',chivalry:sp==='cy'?'':'건물 파괴'};
   const bb=B[t]; if(bb) out.push(bb);
@@ -6741,7 +6741,7 @@ function setup(){ advSetup(); return;
       <p class="note" style="margin:-8px 0 14px">${MAPS[st.map].n}: ${MAPS[st.map].d}</p>
       <div class="row"><button class="pri" id="sGo">관전 시작</button></div>
       <p class="note" style="margin-top:14px;text-align:center"><b>NOT AN OFFICIAL Polytopia PRODUCT. NOT APPROVED BY OR ASSOCIATED WITH MIDJIWAN.</b><br>비공식 팬 프로젝트이며 Midjiwan과 무관하고 승인받지 않았습니다.</p>
-      <p class="note">유닛 스탯·스폰율·부족 시작값은 2026년 10월 기준 위키·나무위키·공식 패치노트로 재확인. Easy~Crazy 봇 수입은 위키 값, Super 이상과 커스텀 맵 유형은 자체 설정. 근사치: Clathrus 수입·독, 균사체 회복량, 유적 개수, 아쿠아리온 육지 이동. 봇 관계 수치는 위키의 요인 목록을 바탕으로 한 자체 가중치. 확인 못 한 값(아쿠아리온 육지 이동 패널티, 유적 개수, 성역 비용 등)은 근사치. 큰 맵은 봇 턴이 몇 초 걸릴 수 있음.</p>`,true);
+      <p class="note">유닛 스탯·스폰율·부족 시작값은 2026년 10월 기준 위키·나무위키·공식 패치노트로 재확인. Easy~Crazy 봇 수입은 위키 값, Super 이상과 커스텀 맵 유형은 자체 설정. 근사치: Clathrus 수입·독, 균사체 회복량, 유적 개수, 아쿠아리온 육지 이동. 봇 관계 수치는 위키의 요인 목록을 바탕으로 한 자체 가중치. 확인 못 한 값(아쿠아리온 육지 이동 패널티, 유적 개수, 성소 비용 등)은 근사치. 큰 맵은 봇 턴이 몇 초 걸릴 수 있음.</p>`,true);
     const sh=$('sheet'), sc=sh.scrollTop;
     sh.querySelectorAll('[data-tr]').forEach(b=>b.onclick=()=>{ st.tribe=+b.dataset.tr; keep(); });
     sh.querySelectorAll('[data-k]').forEach(b=>b.onclick=()=>{ const k=b.dataset.k, v=b.dataset.v; st[k]=(k==='bots')?+v:v; if(k==='diff') st.botList.forEach(o=>o.diff=v); keep(); });
@@ -6933,12 +6933,12 @@ function advSetup(){
 // ---------- menu / modals ----------
 function advMenu(){
   openModal(`<h2>메뉴</h2><div class="row">
-    <button id="mTxt">지형 텍스트 입력</button><button id="mExp">JSON 내보내기</button><button id="mImp">JSON 불러오기</button>
-    <button id="mUndo">↩ 되돌리기</button><button id="mBak">🕘 자동 백업</button><button id="mFog">전부 밝히기</button><button id="mNewA">새 판</button></div>
+    <button id="mImp">JSON 불러오기</button>
+    <button id="mUndo">↩ 되돌리기</button><button id="mFog">전부 밝히기</button><button id="mNewA">새 판</button></div>
     <label class="tog"><input type="checkbox" id="mBon" ${ADVS.oppBonus ? 'checked' : ''}> 상대가 봇 (수입 보너스 있음)<small>사람 상대면 끄세요. 상대 턴 예측과 별 계산에 쓰여요.</small></label>
     <label class="tog"><input type="checkbox" id="mGh" ${ADVS.useGhosts ? 'checked' : ''}> 유령 유닛을 계산에 포함<small>안개 속 추정 유닛을 가능 범위 안에서 나에게 가장 위험한 칸에 있다고 보고 계산해요.</small></label>`);
-  $('mUndo').onclick = () => { closeModal(); advUndo(); }; $('mBak').onclick = advBackupModal;
-  $('mTxt').onclick = advTextModal; $('mExp').onclick = advExportModal; $('mImp').onclick = advImportModal;
+  $('mUndo').onclick = () => { closeModal(); advUndo(); }; 
+  $('mImp').onclick = advImportModal;
   $('mFog').onclick = () => { g.players[0].explored.fill(1); closeModal(); advChanged(); };
   $('mNewA').onclick = advSetup; 
   $('mBon').onchange = e => { ADVS.oppBonus = e.target.checked; advChanged(); };
